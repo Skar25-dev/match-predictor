@@ -62,10 +62,10 @@ from matchpredictor.data import load_all
 from matchpredictor.analysis import list_teams, team_summary, form_string, team_by_season
 
 df = load_all("data/raw")
-list_teams(df)                      # todos los equipos de los datos
-team_summary(df, "Cadiz")           # balance global, en casa y fuera
-form_string(df, "Sevilla", n=5)     # p. ej. "WDLWW" (el último a la derecha)
-team_by_season(df, "Cadiz")         # una fila por temporada y división (ascensos/descensos)
+list_teams(df)  # todos los equipos de los datos
+team_summary(df, "Cadiz")  # balance global, en casa y fuera
+form_string(df, "Sevilla", n=5)  # p. ej. "WDLWW" (el último a la derecha)
+team_by_season(df, "Cadiz")  # una fila por temporada y división (ascensos/descensos)
 ```
 
 Los nombres son los de football-data.co.uk (`Cadiz`, `Ath Madrid`...); si te equivocas, el error
