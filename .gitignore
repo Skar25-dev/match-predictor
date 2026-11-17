@@ -1,0 +1,27 @@
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Datos descargados (se regeneran con: python -m matchpredictor.data.download)
+data/raw/*
+!data/raw/.gitkeep
+
+# Modelos entrenados y experimentos
+models/
+mlruns/
+
+# Secretos
+.env
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
