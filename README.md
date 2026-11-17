@@ -1,7 +1,6 @@
 # ⚽ Match Predictor
 
-Predictor de resultados de fútbol (1X2) para **La Liga** y **Segunda División**, pensado para
-seguir a equipos como el Cádiz, el Sevilla y el Real Madrid. El objetivo del proyecto no es
+Predictor de resultados de fútbol (1X2) para **La Liga** y **Segunda División**. El objetivo del proyecto no es
 "acertar quinielas", sino practicar un flujo de ML serio sobre datos reales: validación
 temporal sin fuga de información, probabilidades calibradas y comparación contra el mercado.
 
