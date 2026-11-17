@@ -9,6 +9,7 @@ from matchpredictor.data import (
     load_all,
     load_season,
     parse_dates,
+    season_from_filename,
     season_label,
 )
 from tests.conftest import FIXTURES
@@ -174,3 +175,32 @@ def test_load_all_drops_matches_repeated_across_files(tmp_path):
 def test_load_all_without_csv_files_explains_how_to_download(tmp_path):
     with pytest.raises(FileNotFoundError, match="download"):
         load_all(tmp_path)
+
+
+def test_season_comes_from_filename_for_matches_played_after_august(write_csv):
+    """Caso real: Fuenlabrada-Deportivo (2019-20) se jugó en agosto de 2020 por el COVID."""
+    path = write_csv(
+        "SP2,20/06/20,Alpha,Beta,1,0,H\nSP2,10/08/20,Fuenlabrada,La Coruna,1,0,H\n",
+        name="SP2_2019-20.csv",
+    )
+
+    assert set(load_season(path)["season"]) == {"2019-20"}
+
+
+def test_season_falls_back_to_dates_when_filename_has_none(write_csv):
+    path = write_csv("SP2,10/08/20,Alpha,Beta,1,0,H\n", name="season.csv")
+
+    assert set(load_season(path)["season"]) == {"2020-21"}
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("SP2_2019-20.csv", "2019-20"),
+        ("SP1_1999-00.csv", "1999-00"),
+        ("season.csv", None),
+        ("SP1_2019-25.csv", None),  # años no consecutivos: no es una temporada válida
+    ],
+)
+def test_season_from_filename(name, expected):
+    assert season_from_filename(name) == expected
