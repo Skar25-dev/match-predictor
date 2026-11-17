@@ -11,6 +11,7 @@ dígitos; el cargador lo tolera: las columnas opcionales que falten se rellenan 
 
 from __future__ import annotations
 
+import re
 import warnings
 from pathlib import Path
 
@@ -103,14 +104,27 @@ def parse_dates(values: pd.Series) -> pd.Series:
 def season_label(dates: pd.Series) -> pd.Series:
     """Etiqueta de temporada (p. ej. ``2025-26``) a partir de la fecha de cada partido.
 
-    La temporada empieza en agosto. Julio cuenta como final de la anterior porque la
-    2019-20 terminó en julio de 2020 (COVID).
+    La temporada empieza en agosto. Es solo una aproximación: la 2019-20 se alargó hasta
+    agosto de 2020 (COVID), así que ``load_season`` prefiere la temporada del nombre del
+    archivo (``SP2_2019-20.csv``) y usa esta función solo si el nombre no la indica.
     """
     start_year = np.where(dates.dt.month >= 8, dates.dt.year, dates.dt.year - 1)
     return pd.Series(
         [f"{year}-{(year + 1) % 100:02d}" for year in start_year],
         index=dates.index,
     )
+
+
+_SEASON_IN_NAME = re.compile(r"(\d{4})-(\d{2})(?!\d)")
+
+
+def season_from_filename(path: str | Path) -> str | None:
+    """Temporada indicada en el nombre del archivo (``2019-20``), o ``None`` si no hay."""
+    match = _SEASON_IN_NAME.search(Path(path).stem)
+    if match is None:
+        return None
+    start, end = int(match.group(1)), int(match.group(2))
+    return match.group(0) if (start + 1) % 100 == end else None
 
 
 def _read_csv(path: Path) -> pd.DataFrame:
@@ -181,7 +195,8 @@ def load_season(path: str | Path) -> pd.DataFrame:
                 stacklevel=2,
             )
 
-    df["season"] = season_label(df["date"])
+    named_season = season_from_filename(path)
+    df["season"] = named_season if named_season else season_label(df["date"])
     df = _drop_duplicates(df, path.name)
     return _sort(df)[_COLUMN_ORDER]
 

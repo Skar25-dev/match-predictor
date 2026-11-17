@@ -4,6 +4,7 @@ from matchpredictor.data.loader import (
     load_all,
     load_season,
     parse_dates,
+    season_from_filename,
     season_label,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "load_all",
     "load_season",
     "parse_dates",
+    "season_from_filename",
     "season_label",
 ]
