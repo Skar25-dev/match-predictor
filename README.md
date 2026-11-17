@@ -6,14 +6,16 @@ seguir a equipos como el Cádiz, el Sevilla y el Real Madrid. El objetivo del pr
 temporal sin fuga de información, probabilidades calibradas y comparación contra el mercado.
 
 > **Estado:** en construcción. Ahora mismo están hechos la **carga y limpieza de datos**, la
-> **descarga automática** y la infraestructura (tests, lint, Docker, CI). Aún no hay modelo.
+> **descarga automática**, el **análisis por equipo** y la infraestructura (tests, lint, Docker, CI).
+> Aún no hay modelo.
 
 ## 🗺️ Hoja de ruta
 
 - [x] Carga y limpieza de los CSV (tolerante a temporadas antiguas)
 - [x] Script de descarga de datos históricos
 - [x] Tests, lint, Docker y CI
-- [ ] Descargar y validar el histórico completo (varias temporadas)
+- [x] Descargar y validar el histórico completo (10 temporadas; 462 partidos por temporada en Segunda)
+- [x] Análisis por equipo: resumen, casa/fuera, forma reciente y evolución por temporada
 - [ ] Ratings Elo entre temporadas y divisiones, forma reciente, descanso entre partidos
 - [ ] Línea base: probabilidades implícitas de las cuotas y regresión logística
 - [ ] Modelo de gradient boosting (XGBoost / LightGBM) con probabilidades calibradas
@@ -53,6 +55,22 @@ python -c "from matchpredictor.data import load_all; print(load_all('data/raw').
 
 Opciones de la descarga: `--from-season 2018`, `--divisions SP1`, `--force` (ver `--help`).
 
+### 📈 Análisis de un equipo
+
+```python
+from matchpredictor.data import load_all
+from matchpredictor.analysis import list_teams, team_summary, form_string, team_by_season
+
+df = load_all("data/raw")
+list_teams(df)  # todos los equipos de los datos
+team_summary(df, "Cadiz")  # balance global, en casa y fuera
+form_string(df, "Sevilla", n=5)  # p. ej. "WDLWW" (el último a la derecha)
+team_by_season(df, "Cadiz")  # una fila por temporada y división (ascensos/descensos)
+```
+
+Los nombres son los de football-data.co.uk (`Cadiz`, `Ath Madrid`...); si te equivocas, el error
+sugiere el más parecido.
+
 ### 🐳 Con Docker
 
 ```bash
@@ -75,9 +93,11 @@ de Docker en cada push y pull request.
 
 ```text
 ├── matchpredictor/
-│   └── data/
-│       ├── loader.py      # Carga, limpieza y validación de los CSV
-│       └── download.py    # Descarga de temporadas desde football-data.co.uk
+│   ├── data/
+│   │   ├── loader.py      # Carga, limpieza y validación de los CSV
+│   │   └── download.py    # Descarga de temporadas desde football-data.co.uk
+│   └── analysis/
+│       └── team.py        # Historial, resumen y forma de un equipo (formato largo)
 ├── tests/                 # pytest (+ fixtures/ con muestras reales recortadas)
 ├── data/raw/              # CSV descargados (ignorados por git)
 ├── .github/workflows/     # CI: lint + tests + build de la imagen Docker
