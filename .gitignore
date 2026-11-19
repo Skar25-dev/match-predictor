@@ -15,7 +15,7 @@ data/raw/*
 !data/raw/.gitkeep
 
 # Modelos entrenados y experimentos
-models/
+/models/
 mlruns/
 
 # Secretos
