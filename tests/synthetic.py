@@ -12,8 +12,10 @@ DRAW_PROB = 0.26
 MARGIN = 1.06
 
 
-def synthetic_games(n_seasons: int = 5, n_teams: int = 14, seed: int = 0) -> pd.DataFrame:
-    """Partidos de ``n_seasons`` temporadas de una división SP1, con cuotas B365 (con margen)."""
+def synthetic_raw(n_seasons: int = 5, n_teams: int = 14, seed: int = 0) -> pd.DataFrame:
+    """Partidos de ``n_seasons`` temporadas de una división SP1, con cuotas B365 (con margen).
+
+    Son datos \"crudos\": como los de ``load_all``, sin columnas de Elo."""
     rng = np.random.default_rng(seed)
     strengths = rng.normal(0, 200, n_teams)
     rows = []
@@ -46,7 +48,12 @@ def synthetic_games(n_seasons: int = 5, n_teams: int = 14, seed: int = 0) -> pd.
                     }
                 )
                 day += 1
-    games, _ = compute_elo(pd.DataFrame(rows))
+    return pd.DataFrame(rows)
+
+
+def synthetic_games(n_seasons: int = 5, n_teams: int = 14, seed: int = 0) -> pd.DataFrame:
+    """Lo mismo que ``synthetic_raw`` pero con el Elo calculado."""
+    games, _ = compute_elo(synthetic_raw(n_seasons, n_teams, seed))
     return games
 
 

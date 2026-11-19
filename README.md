@@ -101,6 +101,18 @@ solo cuenta los partidos que tienen cuotas, para que la comparación sea justa.
 Referencias: predecir 1/3-1/3-1/3 da log-loss 1,0986 y Brier 0,667; cuanto más bajo, mejor.
 El mercado es un rival duro: el objetivo realista es acercarse a él, no superarlo.
 
+### 🔧 Ajuste del Elo (sin hacer trampa)
+
+```bash
+python -m matchpredictor.evaluation.tuning --data data/raw
+```
+
+Prueba combinaciones de `k`, ventaja de campo, regresión entre temporadas y rating inicial de
+Segunda. Los parámetros se **eligen** con temporadas de validación y se **comprueban** en
+otras de holdout que no se han usado para elegir; la tabla final compara el Elo actual, el
+ajustado, las frecuencias y el mercado en el holdout. Si el mejor valor cae en el borde de la
+rejilla, el programa avisa de que conviene ampliarla.
+
 ### 🐳 Con Docker
 
 ```bash
@@ -130,7 +142,8 @@ de Docker en cada push y pull request.
 │   │   └── baseline.py    # Frecuencias históricas y regresión logística sobre el Elo
 │   ├── evaluation/
 │   │   ├── metrics.py     # Log-loss, Brier y probabilidades implícitas de las cuotas
-│   │   └── backtest.py    # Backtesting temporal y tabla de resultados
+│   │   ├── backtest.py    # Backtesting temporal y tabla de resultados
+│   │   └── tuning.py      # Ajuste del Elo con validación y holdout
 │   ├── features/
 │   │   └── elo.py         # Elo continuo entre temporadas y divisiones
 │   └── analysis/
