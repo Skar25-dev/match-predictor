@@ -15,7 +15,8 @@ temporal sin fuga de información, probabilidades calibradas y comparación cont
 - [x] Tests, lint, Docker y CI
 - [x] Descargar y validar el histórico completo (10 temporadas; 462 partidos por temporada en Segunda)
 - [x] Análisis por equipo: resumen, casa/fuera, forma reciente y evolución por temporada
-- [ ] Ratings Elo entre temporadas y divisiones, forma reciente, descanso entre partidos
+- [x] Ratings Elo entre temporadas y divisiones (previos al partido, sin fuga de información)
+- [ ] Forma reciente y descanso entre partidos como features
 - [ ] Línea base: probabilidades implícitas de las cuotas y regresión logística
 - [ ] Modelo de gradient boosting (XGBoost / LightGBM) con probabilidades calibradas
 - [ ] Backtesting temporal frente a las cuotas del mercado (log-loss, Brier)
@@ -70,6 +71,21 @@ team_by_season(df, "Cadiz")  # una fila por temporada y división (ascensos/desc
 Los nombres son los de football-data.co.uk (`Cadiz`, `Ath Madrid`...); si te equivocas, el error
 sugiere el más parecido.
 
+### 🧮 Ratings Elo
+
+```python
+from matchpredictor.data import load_all
+from matchpredictor.features import compute_elo, latest_ratings
+
+games, ratings = compute_elo(load_all("data/raw"))
+latest_ratings(ratings).head(10)  # ranking actual
+games[["home_team", "away_team", "home_elo", "away_elo", "elo_expected_home"]].tail()
+```
+
+Los ratings de cada partido son los **previos** a jugarse, así que valen como features sin
+fuga de información. Los parámetros (`k`, `home_advantage`, `season_regression`...) se ajustarán
+con backtesting temporal, no a ojo.
+
 ### 🐳 Con Docker
 
 ```bash
@@ -95,6 +111,8 @@ de Docker en cada push y pull request.
 │   ├── data/
 │   │   ├── loader.py      # Carga, limpieza y validación de los CSV
 │   │   └── download.py    # Descarga de temporadas desde football-data.co.uk
+│   ├── features/
+│   │   └── elo.py         # Elo continuo entre temporadas y divisiones
 │   └── analysis/
 │       └── team.py        # Historial, resumen y forma de un equipo (formato largo)
 ├── tests/                 # pytest (+ fixtures/ con muestras reales recortadas)
