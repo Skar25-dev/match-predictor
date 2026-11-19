@@ -17,9 +17,9 @@ temporal sin fuga de información, probabilidades calibradas y comparación cont
 - [x] Análisis por equipo: resumen, casa/fuera, forma reciente y evolución por temporada
 - [x] Ratings Elo entre temporadas y divisiones (previos al partido, sin fuga de información)
 - [ ] Forma reciente y descanso entre partidos como features
-- [ ] Línea base: probabilidades implícitas de las cuotas y regresión logística
+- [x] Línea base: probabilidades implícitas de las cuotas y regresión logística sobre el Elo
 - [ ] Modelo de gradient boosting (XGBoost / LightGBM) con probabilidades calibradas
-- [ ] Backtesting temporal frente a las cuotas del mercado (log-loss, Brier)
+- [x] Backtesting temporal frente a las cuotas del mercado (log-loss, Brier)
 - [ ] API con FastAPI, registro de experimentos con MLflow, Docker Compose + PostgreSQL
 
 ## 📊 Datos
@@ -86,6 +86,21 @@ Los ratings de cada partido son los **previos** a jugarse, así que valen como f
 fuga de información. Los parámetros (`k`, `home_advantage`, `season_regression`...) se ajustarán
 con backtesting temporal, no a ojo.
 
+### 🎯 Backtesting contra el mercado
+
+```bash
+python -m matchpredictor.evaluation.backtest --data data/raw --last 5
+```
+
+Cada temporada de test se predice con un modelo entrenado **solo con temporadas anteriores**.
+Se comparan frecuencias históricas (`frecuencias`), regresión logística sobre el Elo
+(`elo_logit`) y las probabilidades implícitas de las cuotas sin margen (`market`: media de
+cierre si existe, y si no Bet365 de cierre, media de apertura o Bet365 de apertura). La tabla
+solo cuenta los partidos que tienen cuotas, para que la comparación sea justa.
+
+Referencias: predecir 1/3-1/3-1/3 da log-loss 1,0986 y Brier 0,667; cuanto más bajo, mejor.
+El mercado es un rival duro: el objetivo realista es acercarse a él, no superarlo.
+
 ### 🐳 Con Docker
 
 ```bash
@@ -111,6 +126,11 @@ de Docker en cada push y pull request.
 │   ├── data/
 │   │   ├── loader.py      # Carga, limpieza y validación de los CSV
 │   │   └── download.py    # Descarga de temporadas desde football-data.co.uk
+│   ├── models/
+│   │   └── baseline.py    # Frecuencias históricas y regresión logística sobre el Elo
+│   ├── evaluation/
+│   │   ├── metrics.py     # Log-loss, Brier y probabilidades implícitas de las cuotas
+│   │   └── backtest.py    # Backtesting temporal y tabla de resultados
 │   ├── features/
 │   │   └── elo.py         # Elo continuo entre temporadas y divisiones
 │   └── analysis/
