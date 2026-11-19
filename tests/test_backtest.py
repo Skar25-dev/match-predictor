@@ -1,7 +1,6 @@
 import pytest
 
-from matchpredictor.evaluation import complete_seasons, run_backtest, score_table
-from matchpredictor.evaluation.backtest import main
+from matchpredictor.evaluation.backtest import complete_seasons, main, run_backtest, score_table
 from matchpredictor.models import EloLogit, FrequencyBaseline
 from tests.synthetic import synthetic_games, write_as_csvs
 
