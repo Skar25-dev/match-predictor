@@ -43,7 +43,10 @@ class EloLogit:
     @staticmethod
     def _features(games: pd.DataFrame) -> np.ndarray:
         return np.column_stack(
-            [games["elo_diff"].to_numpy(dtype=float) / 100.0, (games["division"] == "SP2").to_numpy()]
+            [
+                games["elo_diff"].to_numpy(dtype=float) / 100.0,
+                (games["division"] == "SP2").to_numpy(),
+            ]
         ).astype(float)
 
     def fit(self, games: pd.DataFrame) -> EloLogit:
