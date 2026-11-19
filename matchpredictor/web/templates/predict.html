@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Predictor · Match Predictor{% endblock %}
+{% block content %}
+<h1>Predecir un partido</h1>
+<p class="sub">Probabilidades de victoria local, empate y victoria visitante.</p>
+
+<form class="card" action="/predict" method="get">
+  <div class="grid">
+    <div><label>Local</label>
+      {% with field="home", selected=home, empty="Equipo local…" %}{% include "_team_select.html" %}{% endwith %}</div>
+    <div><label>Visitante</label>
+      {% with field="away", selected=away, empty="Equipo visitante…" %}{% include "_team_select.html" %}{% endwith %}</div>
+    <div><label>Competición</label>
+      <select name="division">
+        <option value="" {% if not division %}selected{% endif %}>Según el equipo local</option>
+        <option value="SP1" {% if division == "SP1" %}selected{% endif %}>La Liga</option>
+        <option value="SP2" {% if division == "SP2" %}selected{% endif %}>Segunda División</option>
+      </select></div>
+  </div>
+  <button type="submit">Predecir</button>
+</form>
+
+{% if error %}<div class="card error">{{ error }}</div>{% endif %}
+
+{% if result %}
+<div class="card">
+  <h2>{{ result.home | team_name }} – {{ result.away | team_name }}</h2>
+  {% set p = result.probabilities %}
+  <div class="bar">
+    <i style="width:{{ p.home * 100 }}%; background:var(--home)"></i>
+    <i style="width:{{ p.draw * 100 }}%; background:var(--draw)"></i>
+    <i style="width:{{ p.away * 100 }}%; background:var(--away)"></i>
+  </div>
+  <div class="probs">
+    <div><b style="color:var(--home)">{{ p.home | pct }}</b><small>Gana {{ result.home | team_name }}<br>cuota justa {{ result.fair_odds.home | dec(2) }}</small></div>
+    <div><b style="color:var(--draw)">{{ p.draw | pct }}</b><small>Empate<br>cuota justa {{ result.fair_odds.draw | dec(2) }}</small></div>
+    <div><b style="color:var(--away)">{{ p.away | pct }}</b><small>Gana {{ result.away | team_name }}<br>cuota justa {{ result.fair_odds.away | dec(2) }}</small></div>
+  </div>
+  <p class="note" style="margin-top:14px">
+    Elo: {{ result.home | team_name }} {{ result.home_elo | dec(0) }} · {{ result.away | team_name }} {{ result.away_elo | dec(0) }}
+    · Competición: {{ result.division | division_name }}.
+    {% if result.hypothetical %}<br><b>Partido hipotético:</b> los dos equipos no juegan hoy en la misma división.{% endif %}
+  </p>
+</div>
+<p class="note">Modelo: Elo continuo entre temporadas + regresión logística. En backtesting sobre
+  4 temporadas queda a unos 0,02 de log-loss de las cuotas del mercado: es orientativo, no una
+  predicción segura. La "cuota justa" es 1 / probabilidad, sin margen de casa de apuestas.</p>
+{% endif %}
+{% endblock %}

@@ -20,7 +20,8 @@ temporal sin fuga de información, probabilidades calibradas y comparación cont
 - [x] Línea base: probabilidades implícitas de las cuotas y regresión logística sobre el Elo
 - [ ] Modelo de gradient boosting (XGBoost / LightGBM) con probabilidades calibradas
 - [x] Backtesting temporal frente a las cuotas del mercado (log-loss, Brier)
-- [ ] API con FastAPI, registro de experimentos con MLflow, Docker Compose + PostgreSQL
+- [x] Web con FastAPI + Jinja2: ficha de equipo y predictor de partido (con selector de equipos)
+- [ ] Registro de experimentos con MLflow, PostgreSQL y actualización periódica de datos
 
 ## 📊 Datos
 
@@ -113,11 +114,31 @@ otras de holdout que no se han usado para elegir; la tabla final compara el Elo 
 ajustado, las frecuencias y el mercado en el holdout. Si el mejor valor cae en el borde de la
 rejilla, el programa avisa de que conviene ampliarla.
 
+### 🌐 Web
+
+```bash
+python -m matchpredictor.web --data data/raw      # http://127.0.0.1:8000
+```
+
+- `/`: selector de equipo y de partido (desplegables agrupados por división).
+- `/team/<equipo>`: Elo y puesto, forma reciente, balance de la temporada en casa y fuera,
+  últimos partidos y recorrido por temporadas (ascensos y descensos).
+- `/predict?home=Sevilla&away=Cadiz`: probabilidades 1X2 y cuotas justas. Si los equipos no
+  juegan en la misma división, se avisa de que el partido es hipotético.
+- API JSON: `/api/teams`, `/api/team/<equipo>`, `/api/predict?home=..&away=..`, `/health` y
+  documentación interactiva en `/api/docs`.
+
+Al arrancar carga los CSV y entrena el modelo una vez; después responde al instante.
+
 ### 🐳 Con Docker
 
 ```bash
 docker build -t match-predictor .
 docker run --rm -v "$(pwd)/data:/app/data" match-predictor   # descarga los datos en ./data/raw
+
+# O con Compose: descarga y web en http://localhost:8000
+docker compose run --rm download
+docker compose up web
 ```
 
 ### 🧪 Tests y lint
@@ -138,6 +159,9 @@ de Docker en cada push y pull request.
 │   ├── data/
 │   │   ├── loader.py      # Carga, limpieza y validación de los CSV
 │   │   └── download.py    # Descarga de temporadas desde football-data.co.uk
+│   ├── service.py         # Junta datos, Elo y modelo; responde a la web
+│   ├── names.py           # Nombres para mostrar (Cadiz -> Cádiz)
+│   ├── web/               # FastAPI + plantillas Jinja2
 │   ├── models/
 │   │   └── baseline.py    # Frecuencias históricas y regresión logística sobre el Elo
 │   ├── evaluation/
@@ -152,6 +176,7 @@ de Docker en cada push y pull request.
 ├── data/raw/              # CSV descargados (ignorados por git)
 ├── .github/workflows/     # CI: lint + tests + build de la imagen Docker
 ├── Dockerfile
+├── docker-compose.yml      # web y descarga de datos
 ├── requirements.txt       # Dependencias de producción (versiones fijadas)
-└── requirements-dev.txt   # + pytest y ruff
+└── requirements-dev.txt   # + pytest, httpx y ruff
 ```

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Match Predictor</h1>
+<p class="sub">Análisis y predicción 1X2 de La Liga y Segunda División.</p>
+<div class="grid">
+  <form class="card" action="/team" method="get">
+    <h2>Analizar un equipo</h2>
+    <label>Equipo</label>
+    {% with field="name", selected="", empty="Elige un equipo…" %}{% include "_team_select.html" %}{% endwith %}
+    <button type="submit">Ver ficha</button>
+  </form>
+  <form class="card" action="/predict" method="get">
+    <h2>Predecir un partido</h2>
+    <label>Local</label>
+    {% with field="home", selected="", empty="Equipo local…" %}{% include "_team_select.html" %}{% endwith %}
+    <label>Visitante</label>
+    {% with field="away", selected="", empty="Equipo visitante…" %}{% include "_team_select.html" %}{% endwith %}
+    <button type="submit">Predecir</button>
+  </form>
+</div>
+{% endblock %}
