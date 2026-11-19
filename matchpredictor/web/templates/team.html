@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ data.team | team_name }} · Match Predictor{% endblock %}
+{% macro record(block) %}
+  <div class="stats">
+    <div class="stat"><b>{{ block.played }}</b><span>partidos</span></div>
+    <div class="stat"><b>{{ block.wins }}-{{ block.draws }}-{{ block.losses }}</b><span>V-E-D</span></div>
+    <div class="stat"><b>{{ block.goals_for }}-{{ block.goals_against }}</b><span>goles</span></div>
+    <div class="stat"><b>{{ block.points }}</b><span>puntos</span></div>
+    <div class="stat"><b>{{ block.points_per_game | dec(2) }}</b><span>pts/partido</span></div>
+  </div>
+{% endmacro %}
+{% block content %}
+<h1>{{ data.team | team_name }}</h1>
+<p class="sub">
+  <span class="badge">{{ data.division | division_name }}{% if not data.active %} (última vez){% endif %}</span>
+  Elo {{ data.elo | dec(0) }}{% if data.elo_rank %} · puesto {{ data.elo_rank }} de {{ data.elo_rank_of }}{% endif %}
+</p>
+
+<div class="card">
+  <h2>Forma reciente</h2>
+  <div class="form-chips">{% for outcome in data.form %}<span class="{{ outcome }}">{{ outcome }}</span>{% endfor %}</div>
+  <p class="note">W victoria · D empate · L derrota. El último partido, a la derecha.</p>
+</div>
+
+{% if data.current_season %}
+<div class="card">
+  <h2>Temporada {{ data.latest_season }}</h2>
+  {{ record(data.current_season.overall) }}
+  <table style="margin-top:12px">
+    <tr><th></th><th>PJ</th><th>V</th><th>E</th><th>D</th><th>GF</th><th>GC</th><th>Pts</th></tr>
+    {% for label, block in [("En casa", data.current_season.home), ("Fuera", data.current_season.away)] %}
+    <tr><td>{{ label }}</td><td>{{ block.played }}</td><td>{{ block.wins }}</td><td>{{ block.draws }}</td>
+        <td>{{ block.losses }}</td><td>{{ block.goals_for }}</td><td>{{ block.goals_against }}</td>
+        <td>{{ block.points }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>Histórico completo en los datos</h2>
+  {{ record(data.all_time.overall) }}
+</div>
+
+<div class="card">
+  <h2>Últimos partidos</h2>
+  <table>
+    <tr><th>Fecha</th><th style="text-align:left">Rival</th><th>Sede</th><th>Resultado</th><th></th></tr>
+    {% for m in data.last_matches %}
+    <tr><td>{{ m.date }}</td><td style="text-align:left">{{ m.opponent | team_name }}</td>
+        <td>{{ "Casa" if m.venue == "H" else "Fuera" }}</td><td>{{ m.score }}</td>
+        <td><span class="badge {{ m.outcome }}" style="color:#fff;border:0">{{ m.outcome }}</span></td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="card">
+  <h2>Temporada a temporada</h2>
+  <table>
+    <tr><th>Temporada</th><th>División</th><th>PJ</th><th>V</th><th>E</th><th>D</th><th>GF</th><th>GC</th><th>Pts</th></tr>
+    {% for s in data.seasons %}
+    <tr><td>{{ s.season }}</td><td>{{ s.division | division_name }}</td><td>{{ s.played }}</td>
+        <td>{{ s.wins }}</td><td>{{ s.draws }}</td><td>{{ s.losses }}</td>
+        <td>{{ s.goals_for }}</td><td>{{ s.goals_against }}</td><td>{{ s.points }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

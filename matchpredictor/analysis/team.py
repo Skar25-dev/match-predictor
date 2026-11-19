@@ -80,13 +80,14 @@ def team_matches(df: pd.DataFrame, team: str | None = None) -> pd.DataFrame:
     long["points"] = long["outcome"].map(_POINTS).astype("int64")
 
     if team is not None:
-        long = long[long["team"] == _resolve_team(df, team)]
+        long = long[long["team"] == resolve_team(df, team)]
     return long.sort_values(["date", "venue"], kind="stable").reset_index(drop=True)[
         TEAM_MATCH_COLUMNS
     ]
 
 
-def _resolve_team(df: pd.DataFrame, team: str) -> str:
+def resolve_team(df: pd.DataFrame, team: str) -> str:
+    """Nombre exacto del equipo en los datos, o ``UnknownTeamError`` con sugerencias."""
     teams = list_teams(df)
     if team in teams:
         return team

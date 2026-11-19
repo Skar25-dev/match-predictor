@@ -1,0 +1,23 @@
+services:
+  # Web: docker compose up web  ->  http://localhost:8000
+  # Necesita los CSV en ./data/raw (ver el servicio "download").
+  web:
+    build: .
+    command: python -m matchpredictor.web --data data/raw --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
+
+  # Descarga de datos: docker compose run --rm download
+  download:
+    build: .
+    profiles: ["tools"]
+    volumes:
+      - ./data:/app/data

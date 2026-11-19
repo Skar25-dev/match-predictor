@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Match Predictor{% endblock %}</title>
+  <style>
+    :root {
+      --bg: #f6f7f9; --card: #ffffff; --text: #1b1f24; --muted: #5d6673; --line: #dfe3e8;
+      --accent: #1f6feb; --home: #1f6feb; --draw: #8a94a3; --away: #d9730d;
+      --win: #1a7f37; --loss: #cf222e;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1318; --card: #171c23; --text: #e6e9ee; --muted: #9aa4b2; --line: #2a313b;
+        --accent: #58a6ff; --home: #58a6ff; --draw: #7d8795; --away: #f0883e;
+        --win: #3fb950; --loss: #f85149;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text);
+           font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    main, header .inner { max-width: 880px; margin: 0 auto; padding: 0 16px; }
+    header { background: var(--card); border-bottom: 1px solid var(--line); }
+    header .inner { display: flex; gap: 20px; align-items: center; height: 56px; }
+    header a { color: var(--text); text-decoration: none; }
+    header .brand { font-weight: 700; }
+    header nav a { color: var(--muted); margin-right: 14px; }
+    header nav a:hover { color: var(--accent); }
+    h1 { font-size: 1.7rem; margin: 28px 0 4px; }
+    h2 { font-size: 1.1rem; margin: 0 0 12px; }
+    .sub { color: var(--muted); margin: 0 0 20px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+            padding: 18px; margin-bottom: 16px; }
+    .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    label { display: block; font-size: .85rem; color: var(--muted); margin: 10px 0 4px; }
+    select, button { font: inherit; width: 100%; padding: 9px 10px; border-radius: 8px;
+                     border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+    button { background: var(--accent); color: #fff; border: 0; margin-top: 14px;
+             cursor: pointer; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+    th, td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: var(--muted); font-weight: 600; }
+    .badge { display: inline-block; font-size: .78rem; padding: 2px 9px; border-radius: 99px;
+             border: 1px solid var(--line); color: var(--muted); }
+    .stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+    .stat b { display: block; font-size: 1.35rem; }
+    .stat span { color: var(--muted); font-size: .82rem; }
+    .form-chips span { display: inline-block; width: 28px; height: 28px; line-height: 28px;
+                       text-align: center; border-radius: 6px; color: #fff; font-weight: 700;
+                       margin-right: 4px; }
+    .W { background: var(--win); } .D { background: var(--draw); } .L { background: var(--loss); }
+    .bar { display: flex; height: 16px; border-radius: 8px; overflow: hidden; margin: 10px 0 14px; }
+    .bar i { display: block; height: 100%; }
+    .probs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; }
+    .probs b { display: block; font-size: 1.6rem; }
+    .probs small { color: var(--muted); }
+    .note { color: var(--muted); font-size: .85rem; }
+    .error { border-color: var(--loss); color: var(--loss); }
+    footer { color: var(--muted); font-size: .8rem; padding: 24px 0 40px; }
+  </style>
+</head>
+<body>
+<header><div class="inner">
+  <a class="brand" href="/">⚽ Match Predictor</a>
+  <nav><a href="/">Equipos</a><a href="/predict">Predictor</a></nav>
+</div></header>
+<main>
+  {% block content %}{% endblock %}
+  <footer>Datos de football-data.co.uk · temporada más reciente: {{ latest_season }} ·
+    proyecto educativo; las probabilidades son orientativas.</footer>
+</main>
+</body>
+</html>

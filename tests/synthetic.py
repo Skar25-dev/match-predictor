@@ -75,3 +75,13 @@ def write_as_csvs(games: pd.DataFrame, directory) -> None:
             }
         )
         frame.to_csv(directory / f"SP1_{season}.csv", index=False)
+
+
+def synthetic_raw_two_divisions() -> pd.DataFrame:
+    """Una liga SP1 (equipos ``T00``…) y una SP2 (equipos ``U00``…) con las mismas temporadas."""
+    sp1 = synthetic_raw(seed=0)
+    sp2 = synthetic_raw(n_teams=12, seed=1).assign(division="SP2")
+    for column in ("home_team", "away_team"):
+        sp2[column] = "U" + sp2[column].str[1:]
+    both = pd.concat([sp1, sp2], ignore_index=True)
+    return both.sort_values("date", kind="stable").reset_index(drop=True)
