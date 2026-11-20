@@ -114,6 +114,18 @@ otras de holdout que no se han usado para elegir; la tabla final compara el Elo 
 ajustado, las frecuencias y el mercado en el holdout. Si el mejor valor cae en el borde de la
 rejilla, el programa avisa de que conviene ampliarla.
 
+### 🔀 ¿Misma escala en La Liga y en Segunda?
+
+```bash
+python -m matchpredictor.evaluation.divisions --data data/raw
+```
+
+El Elo solo conecta las dos divisiones a través de los equipos que suben y bajan, y no hay
+partidos entre ellas con los que comprobarlo directamente. Este análisis mira los primeros
+partidos de cada ascendido y descendido en su nueva división y estima un desfase `d`
+(*un rating de Segunda equivale a rating + d en La Liga*) con intervalo de confianza por
+bootstrap. Si el intervalo incluye 0, no hay evidencia de que haga falta corregir la escala.
+
 ### 🌐 Web
 
 ```bash
@@ -167,7 +179,8 @@ de Docker en cada push y pull request.
 │   ├── evaluation/
 │   │   ├── metrics.py     # Log-loss, Brier y probabilidades implícitas de las cuotas
 │   │   ├── backtest.py    # Backtesting temporal y tabla de resultados
-│   │   └── tuning.py      # Ajuste del Elo con validación y holdout
+│   │   ├── tuning.py      # Ajuste del Elo con validación y holdout
+│   │   └── divisions.py   # Desfase de escala entre La Liga y Segunda (ascensos y descensos)
 │   ├── features/
 │   │   └── elo.py         # Elo continuo entre temporadas y divisiones
 │   └── analysis/
