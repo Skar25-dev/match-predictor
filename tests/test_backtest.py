@@ -112,6 +112,6 @@ def test_cli_runs_end_to_end(tmp_path, capsys, games):
 
     out = capsys.readouterr().out
     assert "2023-24" in out and "2022-23" in out
-    for model in ("frecuencias", "elo_logit", "market"):
+    for model in ("frecuencias", "elo_logit", "elo_forma", "gbm", "market"):
         assert model in out
     assert "GLOBAL" in out and "POR DIVISIÓN" in out

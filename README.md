@@ -16,9 +16,10 @@ temporal sin fuga de información, probabilidades calibradas y comparación cont
 - [x] Descargar y validar el histórico completo (10 temporadas; 462 partidos por temporada en Segunda)
 - [x] Análisis por equipo: resumen, casa/fuera, forma reciente y evolución por temporada
 - [x] Ratings Elo entre temporadas y divisiones (previos al partido, sin fuga de información)
-- [ ] Forma reciente y descanso entre partidos como features
+- [x] Features de forma reciente, tiros y descanso (calculadas antes de cada partido, sin fuga)
 - [x] Línea base: probabilidades implícitas de las cuotas y regresión logística sobre el Elo
-- [ ] Modelo de gradient boosting (XGBoost / LightGBM) con probabilidades calibradas
+- [x] Modelo de gradient boosting (`HistGradientBoosting` de scikit-learn) y regresión logística con esas features
+- [ ] Probabilidades calibradas y decidir qué modelo usa la web según el backtesting
 - [x] Backtesting temporal frente a las cuotas del mercado (log-loss, Brier)
 - [x] Web con FastAPI + Jinja2: ficha de equipo y predictor de partido (con selector de equipos)
 - [ ] Registro de experimentos con MLflow, PostgreSQL y actualización periódica de datos
@@ -102,6 +103,15 @@ solo cuenta los partidos que tienen cuotas, para que la comparación sea justa.
 Referencias: predecir 1/3-1/3-1/3 da log-loss 1,0986 y Brier 0,667; cuanto más bajo, mejor.
 El mercado es un rival duro: el objetivo realista es acercarse a él, no superarlo.
 
+### 🧩 Features y modelos
+
+`add_form_features(games)` añade, por cada partido y equipo, la forma reciente (puntos y
+diferencia de goles de los últimos 5), la diferencia de tiros y de tiros a puerta (últimos 10) y
+los días de descanso, siempre con el historial **anterior** al partido. Hay tests que comparan
+cada valor con una implementación ingenua y que comprueban que cambiar un partido no altera sus
+propias features. Los modelos `FeatureLogit` y `GradientBoosting` las usan junto al Elo, y el
+backtesting (`python -m matchpredictor.evaluation.backtest`) los compara con el mercado.
+
 ### 🔧 Ajuste del Elo (sin hacer trampa)
 
 ```bash
@@ -181,14 +191,16 @@ de Docker en cada push y pull request.
 │   ├── names.py           # Nombres para mostrar (Cadiz -> Cádiz)
 │   ├── web/               # FastAPI + plantillas Jinja2
 │   ├── models/
-│   │   └── baseline.py    # Frecuencias históricas y regresión logística sobre el Elo
+│   │   ├── baseline.py    # Frecuencias históricas y regresión logística sobre el Elo
+│   │   └── feature_models.py  # Regresión logística y gradient boosting con varias features
 │   ├── evaluation/
 │   │   ├── metrics.py     # Log-loss, Brier y probabilidades implícitas de las cuotas
 │   │   ├── backtest.py    # Backtesting temporal y tabla de resultados
 │   │   ├── tuning.py      # Ajuste del Elo con validación y holdout
 │   │   └── divisions.py   # Desfase de escala entre La Liga y Segunda (ascensos y descensos)
 │   ├── features/
-│   │   └── elo.py         # Elo continuo entre temporadas y divisiones
+│   │   ├── elo.py         # Elo continuo entre temporadas y divisiones
+│   │   └── form.py        # Forma reciente, tiros y descanso (sin fuga de información)
 │   └── analysis/
 │       └── team.py        # Historial, resumen y forma de un equipo (formato largo)
 ├── tests/                 # pytest (+ fixtures/ con muestras reales recortadas)
