@@ -3,7 +3,7 @@ import pytest
 
 from matchpredictor.analysis import UnknownTeamError, team_summary
 from matchpredictor.service import PredictorService
-from tests.synthetic import synthetic_raw_two_divisions
+from tests.synthetic import add_shots, synthetic_raw_two_divisions
 
 
 @pytest.fixture(scope="module")
@@ -171,3 +171,53 @@ def test_ranking_uses_the_common_scale(raw):
 
     assert sorted(ranks[team] for team in ranks if team.startswith("T")) == list(range(1, 15))
     assert sorted(ranks[team] for team in ranks if team.startswith("U")) == list(range(15, 27))
+
+
+@pytest.fixture(scope="module")
+def shots_service(raw):
+    return PredictorService(add_shots(raw))
+
+
+def test_overview_reports_shot_form_only_when_there_is_shot_data(service, shots_service):
+    assert service.overview("T03")["sot_form"] is None  # datos sin tiros
+    value = shots_service.overview("T03")["sot_form"]
+    assert isinstance(value, float)
+    assert value == round(float(shots_service.form.loc["T03", "form_sot"]), 1)
+
+
+def test_predict_exposes_shot_form_for_both_teams(shots_service, service):
+    result = shots_service.predict("T01", "T02")
+
+    assert result["sot_form"] == {
+        "home": shots_service.overview("T01")["sot_form"],
+        "away": shots_service.overview("T02")["sot_form"],
+    }
+    assert service.predict("T01", "T02")["sot_form"] == {"home": None, "away": None}
+
+
+def test_model_receives_elo_and_shot_form_differences(raw):
+    service = PredictorService(add_shots(raw), division_offset=-40.0)
+    seen = {}
+
+    class Spy:
+        def predict_proba(self, rows):
+            seen["rows"] = rows
+            return pd.DataFrame({"p_home": [0.5], "p_draw": [0.3], "p_away": [0.2]})
+
+    service.model = Spy()
+
+    service.predict("T01", "U02")  # distinta división: Elo en escala común
+
+    row = seen["rows"].iloc[0]
+    expected_elo = service._common_rating("T01") - service._common_rating("U02")
+    assert row["elo_diff"] == pytest.approx(expected_elo)
+    expected_sot = service.overview("T01")["sot_form"] - service.overview("U02")["sot_form"]
+    assert row["form_sot_diff"] == pytest.approx(expected_sot)
+    assert row["division"] == "SP1"
+
+
+def test_trained_model_uses_elo_and_shot_form_plus_division(shots_service):
+    model = shots_service.model
+
+    assert model.features == ["elo_diff", "form_sot_diff"]
+    assert model.model_.coef_.shape[1] == 3  # Elo, tiros a puerta y división

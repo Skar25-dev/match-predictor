@@ -24,6 +24,13 @@ def _percent(value: float) -> str:
     return f"{value * 100:.1f}".replace(".", ",") + " %"
 
 
+def _signed(value: float, places: int = 1) -> str:
+    """Número con signo explícito y coma decimal (``+1,2`` / ``−0,4``)."""
+    rounded = round(value, places)
+    sign = "+" if rounded >= 0 else "−"
+    return sign + f"{abs(rounded):.{places}f}".replace(".", ",")
+
+
 def _decimal(value: float, places: int = 2) -> str:
     """Número con coma decimal y un número fijo de decimales (``2,90``)."""
     return f"{value:.{places}f}".replace(".", ",")
@@ -38,6 +45,7 @@ def create_app(service: PredictorService) -> FastAPI:
             "division_name": division_name,
             "pct": _percent,
             "dec": _decimal,
+            "signed": _signed,
         }
     )
 

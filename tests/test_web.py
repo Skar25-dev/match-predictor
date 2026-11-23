@@ -4,16 +4,21 @@ import pytest
 from fastapi.testclient import TestClient
 
 from matchpredictor.service import PredictorService
-from matchpredictor.web.app import create_app
-from tests.synthetic import synthetic_raw_two_divisions, write_as_csvs
+from matchpredictor.web.app import _signed, create_app
+from tests.synthetic import add_shots, synthetic_raw_two_divisions, write_as_csvs
 
 
 @pytest.fixture(scope="module")
 def client():
-    raw = synthetic_raw_two_divisions()
+    raw = add_shots(synthetic_raw_two_divisions())
     for column in ("home_team", "away_team"):
         raw[column] = raw[column].replace({"T00": "Ath Madrid"})  # nombre con espacio
     return TestClient(create_app(PredictorService(raw)))
+
+
+@pytest.fixture(scope="module")
+def client_without_shots():
+    return TestClient(create_app(PredictorService(synthetic_raw_two_divisions())))
 
 
 def test_index_lists_teams_grouped_by_division(client):
@@ -167,3 +172,26 @@ def test_entrypoint_passes_the_division_offset_and_the_page_mentions_it(tmp_path
     assert "ajuste de -50 puntos Elo" in page
     same_division = web.get("/predict", params={"home": "T01", "away": "T02"}).text
     assert "ajuste de" not in same_division
+
+
+def test_shot_form_is_shown_when_data_exists(client):
+    team = client.get("/team/T03").text
+    predict = " ".join(client.get("/predict", params={"home": "T01", "away": "T02"}).text.split())
+
+    assert re.search(r"Tiros a puerta \(últimos 10 partidos\): <b>[+−]\d+,\d</b>", team)
+    assert re.search(r"Tiros a puerta \(últimos 10\): T01 [+−]\d+,\d · T02 [+−]\d+,\d", predict)
+
+
+def test_shot_form_is_hidden_without_shot_data(client_without_shots):
+    team = client_without_shots.get("/team/T03").text
+    predict = client_without_shots.get("/predict", params={"home": "T01", "away": "T02"}).text
+
+    assert "Tiros a puerta" not in team and "Tiros a puerta" not in predict
+
+
+@pytest.mark.parametrize(
+    ("value", "text"),
+    [(1.26, "+1,3"), (-0.44, "−0,4"), (0.0, "+0,0"), (-0.04, "+0,0"), (12.0, "+12,0")],
+)
+def test_signed_formatting(value, text):
+    assert _signed(value) == text

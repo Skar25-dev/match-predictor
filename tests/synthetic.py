@@ -94,3 +94,17 @@ def with_promotion(raw: pd.DataFrame) -> pd.DataFrame:
     for column in ("home_team", "away_team"):
         raw.loc[late, column] = raw.loc[late, column].replace({"U00": "T13", "T13": "U00"})
     return raw
+
+
+def add_shots(raw: pd.DataFrame, seed: int = 0) -> pd.DataFrame:
+    """Añade tiros y tiros a puerta aleatorios (el formato de ``load_all``)."""
+    rng = np.random.default_rng(seed)
+    out = raw.copy()
+    for column, low, high in (
+        ("home_shots", 5, 20),
+        ("away_shots", 5, 20),
+        ("home_shots_on_target", 1, 9),
+        ("away_shots_on_target", 1, 9),
+    ):
+        out[column] = rng.integers(low, high, len(out)).astype(float)
+    return out
