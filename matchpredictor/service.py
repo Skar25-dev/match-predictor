@@ -19,7 +19,7 @@ from matchpredictor.analysis import (
     team_summary,
 )
 from matchpredictor.features import add_form_features, compute_elo, current_form
-from matchpredictor.models import FeatureLogit
+from matchpredictor.models import EloLogit, FeatureLogit
 
 DIVISIONS = ("SP1", "SP2")
 #: features del modelo: diferencia de Elo y de tiros a puerta recientes (ver evaluation.backtest)
@@ -39,7 +39,11 @@ class PredictorService:
         self.division_offset = float(division_offset)
         self.games, self.ratings = compute_elo(raw, division_offset=self.division_offset)
         self.games = add_form_features(self.games)
+        #: modelo para partidos de la misma división (Elo + tiros a puerta recientes)
         self.model = FeatureLogit(MODEL_FEATURES).fit(self.games)
+        #: modelo para partidos entre divisiones: solo Elo, porque los tiros de equipos de
+        #: divisiones distintas no son comparables y no hay un ajuste validado para ellos
+        self.elo_model = EloLogit().fit(self.games)
         #: forma actual por equipo (para predecir partidos futuros)
         self.form = current_form(self.games)
         self.latest_season = str(raw["season"].max())
@@ -115,7 +119,9 @@ class PredictorService:
 
         ``division`` condiciona el modelo (en Segunda hay más empates y menos ventaja local);
         por defecto se usa la división actual del equipo local. Si los equipos no juegan en la
-        misma división el partido es hipotético y se avisa.
+        misma división el partido es hipotético: se avisa y se usa solo el Elo (``model`` vale
+        ``"elo"``), porque los tiros de dos divisiones no son comparables. En la misma división
+        se usa Elo + tiros a puerta (``"elo_sot"``).
         """
         home = resolve_team(self.raw, home)
         away = resolve_team(self.raw, away)
@@ -136,7 +142,8 @@ class PredictorService:
         row = pd.DataFrame(
             {"elo_diff": [elo_diff], "form_sot_diff": [sot_diff], "division": [used_division]}
         )
-        probs = self.model.predict_proba(row).iloc[0]
+        model = self.elo_model if hypothetical else self.model
+        probs = model.predict_proba(row).iloc[0]
         chances = {"home": float(probs["p_home"]), "draw": float(probs["p_draw"])}
         chances["away"] = float(probs["p_away"])
         return {
@@ -147,7 +154,10 @@ class PredictorService:
             "away_elo": round(self.ratings[away], 1),
             "probabilities": {key: round(value, 4) for key, value in chances.items()},
             "fair_odds": {key: round(1.0 / value, 2) for key, value in chances.items()},
-            "sot_form": {"home": sot_home, "away": sot_away},
+            "model": "elo" if hypothetical else "elo_sot",
+            "sot_form": {"home": sot_home, "away": sot_away}
+            if not hypothetical
+            else {"home": None, "away": None},
             "hypothetical": hypothetical,
             "division_offset": self.division_offset if hypothetical else 0.0,
         }

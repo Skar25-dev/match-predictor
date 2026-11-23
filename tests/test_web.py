@@ -195,3 +195,17 @@ def test_shot_form_is_hidden_without_shot_data(client_without_shots):
 )
 def test_signed_formatting(value, text):
     assert _signed(value) == text
+
+
+def test_cross_division_page_explains_that_only_elo_is_used(client):
+    page = " ".join(client.get("/predict", params={"home": "T01", "away": "U02"}).text.split())
+
+    assert "solo se usa el Elo" in page
+    assert "Tiros a puerta (últimos 10):" not in page
+
+
+def test_same_division_page_shows_shot_form_and_no_elo_only_note(client):
+    page = " ".join(client.get("/predict", params={"home": "T01", "away": "T02"}).text.split())
+
+    assert "Tiros a puerta (últimos 10):" in page
+    assert "solo se usa el Elo" not in page
