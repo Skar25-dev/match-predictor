@@ -25,18 +25,21 @@ DEFAULT_PARAMS = {
     "home_advantage": 60.0,
     "season_regression": 0.0,
     "sp2_initial": 1400.0,
+    "division_offset": 0.0,
 }
 DEFAULT_GRID = {
-    "k": [10, 15, 20, 25, 30, 40],
-    "home_advantage": [40, 60, 80],
+    "k": [10, 15, 20, 25],
+    "home_advantage": [60],  # la ventaja local la absorbe la regresión logística: no influye
     "season_regression": [0.0, 0.15, 0.3],
-    "sp2_initial": [1300, 1350, 1400, 1450, 1500],
+    "sp2_initial": [1200, 1300, 1400],
+    "division_offset": [0, -15, -30, -45, -60],
 }
 QUICK_GRID = {
     "k": [10, 20],
     "home_advantage": [60],
     "season_regression": [0.0],
     "sp2_initial": [1400],
+    "division_offset": [0],
 }
 
 
@@ -51,6 +54,7 @@ def elo_games(raw: pd.DataFrame, params: Mapping[str, float]) -> pd.DataFrame:
         k=values["k"],
         home_advantage=values["home_advantage"],
         season_regression=values["season_regression"],
+        division_offset=values["division_offset"],
         initial={"SP1": 1500.0, "SP2": values["sp2_initial"]},
     )
     return games

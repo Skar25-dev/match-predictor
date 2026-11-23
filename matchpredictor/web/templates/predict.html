@@ -39,7 +39,9 @@
   <p class="note" style="margin-top:14px">
     Elo: {{ result.home | team_name }} {{ result.home_elo | dec(0) }} · {{ result.away | team_name }} {{ result.away_elo | dec(0) }}
     · Competición: {{ result.division | division_name }}.
-    {% if result.hypothetical %}<br><b>Partido hipotético:</b> los dos equipos no juegan hoy en la misma división.{% endif %}
+    {% if result.hypothetical %}<br><b>Partido hipotético:</b> los dos equipos no juegan hoy en la misma división.
+      {% if result.division_offset %}Para compararlos, a los equipos de Segunda se les ha aplicado un ajuste de
+      {{ result.division_offset | dec(0) }} puntos Elo (estimado con los ascensos y descensos).{% endif %}{% endif %}
   </p>
 </div>
 <p class="note">Modelo: Elo continuo entre temporadas + regresión logística. En backtesting sobre

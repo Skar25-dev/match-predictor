@@ -24,11 +24,17 @@ DIVISIONS = ("SP1", "SP2")
 
 
 class PredictorService:
-    def __init__(self, raw: pd.DataFrame):
+    def __init__(self, raw: pd.DataFrame, division_offset: float = 0.0):
+        """``division_offset``: un rating de Segunda equivale a (rating + offset) en La Liga.
+
+        Se aplica al calcular el Elo en los ascensos y descensos y, sobre todo, al comparar
+        equipos de divisiones distintas (ver ``compute_elo`` y ``evaluation.divisions``).
+        """
         if raw.empty:
             raise ValueError("No hay partidos con los que trabajar")
         self.raw = raw
-        self.games, self.ratings = compute_elo(raw)
+        self.division_offset = float(division_offset)
+        self.games, self.ratings = compute_elo(raw, division_offset=self.division_offset)
         self.model = EloLogit().fit(self.games)
         self.latest_season = str(raw["season"].max())
         self._long = team_matches(raw)
@@ -38,9 +44,14 @@ class PredictorService:
         self._rank = {
             team: position
             for position, team in enumerate(
-                sorted(self.current_division, key=lambda t: -self.ratings[t]), start=1
+                sorted(self.current_division, key=lambda t: -self._common_rating(t)), start=1
             )
         }
+
+    def _common_rating(self, team: str) -> float:
+        """Rating en la escala de La Liga, para comparar equipos de distintas divisiones."""
+        offset = self.division_offset if self._division_of(team) == "SP2" else 0.0
+        return self.ratings[team] + offset
 
     # --- equipos -----------------------------------------------------------------------
     def teams_by_division(self) -> dict[str, list[str]]:
@@ -103,9 +114,14 @@ class PredictorService:
         home_division, away_division = self._division_of(home), self._division_of(away)
         used_division = division or home_division
 
+        hypothetical = home_division != away_division
+        if hypothetical:  # equipos de distinta división: ambos en la escala de La Liga
+            elo_diff = self._common_rating(home) - self._common_rating(away)
+        else:
+            elo_diff = self.ratings[home] - self.ratings[away]
         row = pd.DataFrame(
             {
-                "elo_diff": [self.ratings[home] - self.ratings[away]],
+                "elo_diff": [elo_diff],
                 "division": [used_division],
             }
         )
@@ -120,7 +136,8 @@ class PredictorService:
             "away_elo": round(self.ratings[away], 1),
             "probabilities": {key: round(value, 4) for key, value in chances.items()},
             "fair_odds": {key: round(1.0 / value, 2) for key, value in chances.items()},
-            "hypothetical": home_division != away_division,
+            "hypothetical": hypothetical,
+            "division_offset": self.division_offset if hypothetical else 0.0,
         }
 
 

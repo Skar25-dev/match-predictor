@@ -11,7 +11,7 @@ from matchpredictor.evaluation.divisions import (
 )
 from matchpredictor.features import compute_elo
 from matchpredictor.features.elo import expected_score
-from tests.synthetic import synthetic_raw_two_divisions, write_as_csvs
+from tests.synthetic import synthetic_raw_two_divisions, with_promotion, write_as_csvs
 
 
 def _games(rows):
@@ -133,18 +133,8 @@ def test_bootstrap_interval_contains_the_truth_and_is_reproducible():
     assert (low, high) == bootstrap_interval(rows, n_boot=300)
 
 
-def _with_promotion(raw):
-    """U00 (SP2) y T13 (SP1) intercambian de división desde 2021-22."""
-    raw = raw.copy()
-    late = raw["season"] >= "2021-22"
-    for column in ("home_team", "away_team"):
-        swapped = raw.loc[late, column].replace({"U00": "T13", "T13": "U00"})
-        raw.loc[late, column] = swapped
-    return raw
-
-
 def test_transitions_on_a_larger_league():
-    games, _ = compute_elo(_with_promotion(synthetic_raw_two_divisions()))
+    games, _ = compute_elo(with_promotion(synthetic_raw_two_divisions()))
 
     found = transitions(games)
 
@@ -155,7 +145,7 @@ def test_transitions_on_a_larger_league():
 
 
 def test_cli_reports_promoted_and_relegated(tmp_path, capsys):
-    write_as_csvs(_with_promotion(synthetic_raw_two_divisions()), tmp_path)
+    write_as_csvs(with_promotion(synthetic_raw_two_divisions()), tmp_path)
 
     assert main(["--data", str(tmp_path), "--first", "10"]) == 0
 
