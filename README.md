@@ -165,6 +165,12 @@ backtesting de 5 temporadas: los tiros a puerta son lo único que mejora al Elo 
 1,0199 → 1,0177); la forma por puntos o goles y el descanso no aportan, y el gradient boosting
 rinde peor con tan pocos datos. El mercado sigue en 1,0011.
 
+**Partidos entre divisiones** (p. ej. Sevilla–Cádiz): solo se usa el Elo. Los tiros de dos
+equipos de divisiones distintas están medidos contra rivales distintos y no son comparables, y
+no hay un ajuste validado para ellos; con Elo y tiros juntos el modelo reparte el peso entre
+ambos y el Elo, que es lo que separa a los equipos, pesaría menos. El resultado indica qué
+modelo se ha usado (`model`: `elo` o `elo_sot`).
+
 ### 🐳 Con Docker
 
 ```bash

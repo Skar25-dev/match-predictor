@@ -43,7 +43,8 @@
     <br>Tiros a puerta (últimos 10): {{ result.home | team_name }} {{ result.sot_form.home | signed }}
     · {{ result.away | team_name }} {{ result.sot_form.away | signed }} por partido.
     {% endif %}
-    {% if result.hypothetical %}<br><b>Partido hipotético:</b> los dos equipos no juegan hoy en la misma división.
+    {% if result.hypothetical %}<br><b>Partido hipotético:</b> los dos equipos no juegan hoy en la misma división,
+      así que solo se usa el Elo (los tiros de dos divisiones no son comparables).
       {% if result.division_offset %}Para compararlos, a los equipos de Segunda se les ha aplicado un ajuste de
       {{ result.division_offset | dec(0) }} puntos Elo (estimado con los ascensos y descensos).{% endif %}{% endif %}
   </p>

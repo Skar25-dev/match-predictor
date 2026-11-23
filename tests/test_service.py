@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -195,25 +196,56 @@ def test_predict_exposes_shot_form_for_both_teams(shots_service, service):
     assert service.predict("T01", "T02")["sot_form"] == {"home": None, "away": None}
 
 
-def test_model_receives_elo_and_shot_form_differences(raw):
-    service = PredictorService(add_shots(raw), division_offset=-40.0)
-    seen = {}
+class _Spy:
+    """Modelo falso que registra las filas que recibe."""
 
-    class Spy:
-        def predict_proba(self, rows):
-            seen["rows"] = rows
-            return pd.DataFrame({"p_home": [0.5], "p_draw": [0.3], "p_away": [0.2]})
+    def __init__(self):
+        self.rows = []
 
-    service.model = Spy()
+    def predict_proba(self, rows):
+        self.rows.append(rows)
+        return pd.DataFrame({"p_home": [0.5], "p_draw": [0.3], "p_away": [0.2]})
 
-    service.predict("T01", "U02")  # distinta división: Elo en escala común
 
-    row = seen["rows"].iloc[0]
-    expected_elo = service._common_rating("T01") - service._common_rating("U02")
-    assert row["elo_diff"] == pytest.approx(expected_elo)
-    expected_sot = service.overview("T01")["sot_form"] - service.overview("U02")["sot_form"]
+def test_same_division_uses_elo_and_shot_form_differences(raw):
+    service = PredictorService(add_shots(raw))
+    sot_spy, elo_spy = _Spy(), _Spy()
+    service.model, service.elo_model = sot_spy, elo_spy
+
+    result = service.predict("T01", "T02")
+
+    assert len(sot_spy.rows) == 1 and not elo_spy.rows
+    row = sot_spy.rows[0].iloc[0]
+    assert row["elo_diff"] == pytest.approx(service.ratings["T01"] - service.ratings["T02"])
+    expected_sot = service.overview("T01")["sot_form"] - service.overview("T02")["sot_form"]
     assert row["form_sot_diff"] == pytest.approx(expected_sot)
+    assert result["model"] == "elo_sot"
+
+
+def test_cross_division_uses_only_the_elo_model_in_the_common_scale(raw):
+    service = PredictorService(add_shots(raw), division_offset=-40.0)
+    sot_spy, elo_spy = _Spy(), _Spy()
+    service.model, service.elo_model = sot_spy, elo_spy
+
+    result = service.predict("T01", "U02")
+
+    assert len(elo_spy.rows) == 1 and not sot_spy.rows
+    row = elo_spy.rows[0].iloc[0]
+    assert row["elo_diff"] == pytest.approx(
+        service._common_rating("T01") - service._common_rating("U02")
+    )
     assert row["division"] == "SP1"
+    assert result["model"] == "elo"
+    assert result["sot_form"] == {"home": None, "away": None}  # no se usan: no se muestran
+
+
+def test_cross_division_probabilities_ignore_shot_form(raw):
+    service = PredictorService(add_shots(raw))
+    before = service.predict("T01", "U02")["probabilities"]
+
+    service.form["form_sot"] = service.form["form_sot"] + 25.0 * np.arange(len(service.form))
+
+    assert service.predict("T01", "U02")["probabilities"] == before
 
 
 def test_trained_model_uses_elo_and_shot_form_plus_division(shots_service):
