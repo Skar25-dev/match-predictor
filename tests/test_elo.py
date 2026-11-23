@@ -170,3 +170,42 @@ def test_latest_ratings_sorted_descending():
     series = latest_ratings({"A": 1490.0, "B": 1510.0, "C": 1500.0})
 
     assert series.index.tolist() == ["B", "C", "A"]
+
+
+def test_division_offset_shifts_promoted_and_relegated_teams_only():
+    rows = [
+        ("2023-24", "SP2", "2023-09-01", "A", "B", 1, 0),  # A sube a SP1 la temporada siguiente
+        ("2023-24", "SP1", "2023-09-01", "C", "D", 1, 0),  # D baja a SP2
+        ("2024-25", "SP1", "2024-09-01", "A", "E", 0, 0),
+        ("2024-25", "SP2", "2024-09-01", "D", "F", 0, 0),
+        ("2024-25", "SP1", "2024-09-08", "C", "A", 0, 0),  # C sigue en SP1: sin ajuste
+    ]
+    flat = {"initial": {}, "default_initial": 1500.0, "home_advantage": 0.0}
+
+    plain, _ = compute_elo(_games(rows), division_offset=0.0, **flat)
+    shifted, _ = compute_elo(_games(rows), division_offset=-30.0, **flat)
+
+    def rating(frame, team, season):
+        game = frame[
+            (frame["season"] == season)
+            & ((frame["home_team"] == team) | (frame["away_team"] == team))
+        ].iloc[0]
+        return game["home_elo"] if game["home_team"] == team else game["away_elo"]
+
+    assert rating(shifted, "A", "2024-25") == rating(plain, "A", "2024-25") - 30.0  # sube: + d
+    assert rating(shifted, "D", "2024-25") == rating(plain, "D", "2024-25") + 30.0  # baja: - d
+    assert rating(shifted, "C", "2024-25") == rating(plain, "C", "2024-25")  # se queda
+    assert rating(shifted, "A", "2023-24") == rating(plain, "A", "2023-24")  # primera aparición
+    assert rating(shifted, "E", "2024-25") == rating(plain, "E", "2024-25")  # equipo nuevo
+
+
+def test_division_offset_default_is_neutral():
+    rows = [
+        ("2023-24", "SP2", "2023-09-01", "A", "B", 1, 0),
+        ("2024-25", "SP1", "2024-09-01", "A", "C", 0, 0),
+    ]
+
+    default, _ = compute_elo(_games(rows))
+    explicit, _ = compute_elo(_games(rows), division_offset=0.0)
+
+    assert default.equals(explicit)

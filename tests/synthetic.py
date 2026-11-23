@@ -85,3 +85,12 @@ def synthetic_raw_two_divisions() -> pd.DataFrame:
         sp2[column] = "U" + sp2[column].str[1:]
     both = pd.concat([sp1, sp2], ignore_index=True)
     return both.sort_values("date", kind="stable").reset_index(drop=True)
+
+
+def with_promotion(raw: pd.DataFrame) -> pd.DataFrame:
+    """U00 (Segunda) y T13 (La Liga) intercambian de división a partir de 2021-22."""
+    raw = raw.copy()
+    late = raw["season"] >= "2021-22"
+    for column in ("home_team", "away_team"):
+        raw.loc[late, column] = raw.loc[late, column].replace({"U00": "T13", "T13": "U00"})
+    return raw

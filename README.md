@@ -126,10 +126,16 @@ partidos de cada ascendido y descendido en su nueva división y estima un desfas
 (*un rating de Segunda equivale a rating + d en La Liga*) con intervalo de confianza por
 bootstrap. Si el intervalo incluye 0, no hay evidencia de que haga falta corregir la escala.
 
+Ese desfase se puede usar como parámetro `division_offset` del Elo (se aplica al ascender y
+descender) y de la web (al comparar un equipo de Segunda con uno de La Liga). Parte del
+desfase medido puede ser regresión a la media (los ascendidos suben tras una buena temporada,
+con algo de suerte incluida), así que se valida con `evaluation.tuning` antes de fiarse de él.
+
 ### 🌐 Web
 
 ```bash
 python -m matchpredictor.web --data data/raw      # http://127.0.0.1:8000
+python -m matchpredictor.web --data data/raw --division-offset -30   # ajuste entre divisiones
 ```
 
 - `/`: selector de equipo y de partido (desplegables agrupados por división).

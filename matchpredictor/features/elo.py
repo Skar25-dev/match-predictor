@@ -39,6 +39,7 @@ def compute_elo(
     initial: dict[str, float] | None = None,
     default_initial: float = BASE_RATING,
     season_regression: float = 0.0,
+    division_offset: float = 0.0,
 ) -> tuple[pd.DataFrame, dict[str, float]]:
     """Recorre los partidos en orden cronológico y calcula el Elo de cada equipo.
 
@@ -53,6 +54,10 @@ def compute_elo(
       (por defecto los de Segunda empiezan por debajo que los de La Liga).
     - ``season_regression``: fracción (0-1) con la que, al empezar una temporada nueva, cada
       rating se acerca a 1500. Sirve para reflejar plantillas cambiantes.
+    - ``division_offset``: *un rating de Segunda equivale a (rating + offset) en La Liga*. Al
+      ascender se suma y al descender se resta, para que el rating esté en la escala de la
+      división en la que juega. Con un valor negativo, Segunda "vale menos" que La Liga. Se
+      estima con ``matchpredictor.evaluation.divisions``.
     """
     if k <= 0:
         raise ValueError("k debe ser positivo")
@@ -63,15 +68,22 @@ def compute_elo(
     games = df.sort_values(["date", "time"], kind="stable").reset_index(drop=True)
     ratings: dict[str, float] = {}
     last_season: dict[str, str] = {}
+    last_division: dict[str, str] = {}
     pre_home, pre_away, expected = [], [], []
 
     for row in games.itertuples(index=False):
         for team in (row.home_team, row.away_team):
             if team not in ratings:
                 ratings[team] = initial.get(row.division, default_initial)
-            elif last_season[team] != row.season and season_regression:
-                ratings[team] += season_regression * (BASE_RATING - ratings[team])
+            else:
+                if last_season[team] != row.season and season_regression:
+                    ratings[team] += season_regression * (BASE_RATING - ratings[team])
+                if (last_division[team], row.division) == ("SP2", "SP1"):
+                    ratings[team] += division_offset
+                elif (last_division[team], row.division) == ("SP1", "SP2"):
+                    ratings[team] -= division_offset
             last_season[team] = row.season
+            last_division[team] = row.division
 
         home, away = ratings[row.home_team], ratings[row.away_team]
         expected_home = expected_score(home + home_advantage - away)

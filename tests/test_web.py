@@ -146,3 +146,24 @@ def test_server_entrypoint_builds_the_app_and_starts_uvicorn(tmp_path, monkeypat
 
     assert (started["host"], started["port"]) == ("0.0.0.0", 9123)
     assert TestClient(started["app"]).get("/health").status_code == 200
+
+
+def test_entrypoint_passes_the_division_offset_and_the_page_mentions_it(tmp_path, monkeypatch):
+    import uvicorn
+
+    from matchpredictor.web.__main__ import main
+
+    write_as_csvs(synthetic_raw_two_divisions(), tmp_path)
+    started = {}
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kwargs: started.update(app=app, **kwargs))
+
+    main(["--data", str(tmp_path), "--division-offset", "-50"])
+
+    web = TestClient(started["app"])
+    assert web.get("/api/predict", params={"home": "T01", "away": "U02"}).json()[
+        "division_offset"
+    ] == pytest.approx(-50.0)
+    page = " ".join(web.get("/predict", params={"home": "T01", "away": "U02"}).text.split())
+    assert "ajuste de -50 puntos Elo" in page
+    same_division = web.get("/predict", params={"home": "T01", "away": "T02"}).text
+    assert "ajuste de" not in same_division

@@ -135,3 +135,39 @@ def test_team_that_no_longer_plays_still_has_a_page_and_predictions(raw):
     assert data["current_season"] is None and data["division"] == "SP1"
     assert "Old" not in service.teams_by_division()["SP1"]
     assert service.predict("Old", "T00")["probabilities"]["home"] > 0
+
+
+def test_division_offset_only_affects_cross_division_predictions(raw):
+    plain = PredictorService(raw, division_offset=0.0)
+    shifted = PredictorService(raw, division_offset=-100.0)
+
+    same_plain = plain.predict("T00", "T01")["probabilities"]
+    same_shifted = shifted.predict("T00", "T01")["probabilities"]
+    cross_plain = plain.predict("T00", "U00")
+    cross_shifted = shifted.predict("T00", "U00")
+
+    assert same_plain == same_shifted  # misma división: el desfase no interviene
+    # Segunda "vale menos": el local de La Liga gana más veces contra un equipo de Segunda
+    assert cross_shifted["probabilities"]["home"] > cross_plain["probabilities"]["home"]
+    assert (cross_shifted["division_offset"], cross_plain["division_offset"]) == (-100.0, 0.0)
+    assert shifted.predict("T00", "T01")["division_offset"] == 0.0
+
+
+def test_division_offset_applies_in_both_directions(raw):
+    plain = PredictorService(raw)
+    shifted = PredictorService(raw, division_offset=-100.0)
+
+    # El equipo de Segunda juega de local: con el ajuste tiene menos opciones
+    assert (
+        shifted.predict("U00", "T00")["probabilities"]["home"]
+        < plain.predict("U00", "T00")["probabilities"]["home"]
+    )
+
+
+def test_ranking_uses_the_common_scale(raw):
+    service = PredictorService(raw, division_offset=-1000.0)
+
+    ranks = {team: service.overview(team)["elo_rank"] for team in service.current_division}
+
+    assert sorted(ranks[team] for team in ranks if team.startswith("T")) == list(range(1, 15))
+    assert sorted(ranks[team] for team in ranks if team.startswith("U")) == list(range(15, 27))

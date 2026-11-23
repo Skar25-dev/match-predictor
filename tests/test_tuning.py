@@ -9,7 +9,12 @@ from matchpredictor.evaluation.tuning import (
     main,
     score_params,
 )
-from tests.synthetic import synthetic_raw, write_as_csvs
+from tests.synthetic import (
+    synthetic_raw,
+    synthetic_raw_two_divisions,
+    with_promotion,
+    write_as_csvs,
+)
 
 VALIDATION = ["2021-22", "2022-23"]
 
@@ -61,6 +66,15 @@ def test_every_parameter_reaches_compute_elo(raw):
 
     # Con los valores por defecto explícitos el resultado es idéntico
     assert elo_games(raw, dict(DEFAULT_PARAMS))["home_elo"].equals(base["home_elo"])
+
+
+def test_division_offset_reaches_compute_elo_when_teams_change_division():
+    raw = with_promotion(synthetic_raw_two_divisions())
+
+    base = elo_games(raw, {})
+    shifted = elo_games(raw, {"division_offset": -60.0})
+
+    assert not shifted["home_elo"].equals(base["home_elo"])
 
 
 def test_unknown_parameter_is_rejected(raw):
