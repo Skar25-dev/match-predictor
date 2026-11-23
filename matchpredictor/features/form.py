@@ -38,8 +38,8 @@ def _column(games: pd.DataFrame, name: str) -> pd.Series:
     return pd.Series(np.nan, index=games.index)
 
 
-def add_form_features(games: pd.DataFrame) -> pd.DataFrame:
-    """Devuelve una copia de ``games`` con las features de forma, tiros y descanso."""
+def _team_long(games: pd.DataFrame) -> pd.DataFrame:
+    """Una fila por equipo y partido (puntos, goles y tiros desde su punto de vista), por fecha."""
     if not games.index.is_unique:
         raise ValueError("games debe tener un índice sin duplicados (usa reset_index)")
 
@@ -74,7 +74,12 @@ def add_form_features(games: pd.DataFrame) -> pd.DataFrame:
         ],
         ignore_index=True,
     )
-    long = long.sort_values(["team", "date"], kind="stable")
+    return long.sort_values(["team", "date"], kind="stable")
+
+
+def add_form_features(games: pd.DataFrame) -> pd.DataFrame:
+    """Devuelve una copia de ``games`` con las features de forma, tiros y descanso."""
+    long = _team_long(games)
     by_team = long.groupby("team", sort=False)
     for name, source, window, minimum in _ROLLING:
         long[name] = by_team[source].transform(
@@ -90,3 +95,24 @@ def add_form_features(games: pd.DataFrame) -> pd.DataFrame:
     for metric in FORM_METRICS:
         result[f"{metric}_diff"] = result[f"{metric}_home"] - result[f"{metric}_away"]
     return result
+
+
+def current_form(games: pd.DataFrame) -> pd.DataFrame:
+    """Forma actual de cada equipo, lista para un partido futuro.
+
+    Una fila por equipo con ``form_pts``, ``form_gd``, ``form_shots`` y ``form_sot``: son los
+    mismos promedios que ``add_form_features`` calcularía para un partido jugado justo después
+    de los datos, es decir, incluyendo el último partido de cada equipo. Vacío si no hay
+    suficientes partidos (o datos de tiros).
+    """
+    by_team = _team_long(games).groupby("team", sort=False)
+
+    def latest(source: str, window: int, minimum: int):
+        def mean(values: pd.Series) -> float:
+            tail = values.tail(window)
+            return float(tail.mean()) if tail.count() >= minimum else np.nan
+
+        return by_team[source].apply(mean)
+
+    form = pd.DataFrame({name: latest(source, w, m) for name, source, w, m in _ROLLING})
+    return form.sort_index()

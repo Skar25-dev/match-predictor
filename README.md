@@ -19,7 +19,8 @@ temporal sin fuga de información, probabilidades calibradas y comparación cont
 - [x] Features de forma reciente, tiros y descanso (calculadas antes de cada partido, sin fuga)
 - [x] Línea base: probabilidades implícitas de las cuotas y regresión logística sobre el Elo
 - [x] Modelo de gradient boosting (`HistGradientBoosting` de scikit-learn) y regresión logística con esas features
-- [ ] Probabilidades calibradas y decidir qué modelo usa la web según el backtesting
+- [x] La web usa el mejor modelo del backtesting: Elo + tiros a puerta recientes (logística)
+- [ ] Próxima jornada en la web, historial de predicciones frente al mercado, MLflow
 - [x] Backtesting temporal frente a las cuotas del mercado (log-loss, Brier)
 - [x] Web con FastAPI + Jinja2: ficha de equipo y predictor de partido (con selector de equipos)
 - [ ] Registro de experimentos con MLflow, PostgreSQL y actualización periódica de datos
@@ -157,6 +158,12 @@ python -m matchpredictor.web --data data/raw --division-offset -30   # ajuste en
   documentación interactiva en `/api/docs`.
 
 Al arrancar carga los CSV y entrena el modelo una vez; después responde al instante.
+
+**Modelo de la web:** regresión logística sobre la diferencia de Elo y la de tiros a puerta de
+los últimos 10 partidos (más la división). Se eligió con un análisis por features en el
+backtesting de 5 temporadas: los tiros a puerta son lo único que mejora al Elo (log-loss
+1,0199 → 1,0177); la forma por puntos o goles y el descanso no aportan, y el gradient boosting
+rinde peor con tan pocos datos. El mercado sigue en 1,0011.
 
 ### 🐳 Con Docker
 

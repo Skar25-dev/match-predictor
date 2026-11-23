@@ -95,8 +95,8 @@ def score_table(
 
 def main(argv: Sequence[str] | None = None) -> int:
     from matchpredictor.data import load_all
-    from matchpredictor.features import FORM_DIFF_FEATURES, add_form_features, compute_elo
-    from matchpredictor.models import EloLogit, FeatureLogit, FrequencyBaseline, GradientBoosting
+    from matchpredictor.features import add_form_features, compute_elo
+    from matchpredictor.models import EloLogit, FeatureLogit, FrequencyBaseline
 
     parser = argparse.ArgumentParser(description="Backtesting temporal de la línea base")
     parser.add_argument("--data", default="data/raw", help="directorio con los CSV")
@@ -105,15 +105,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     games, _ = compute_elo(load_all(args.data))
     games = add_form_features(games)
-    features = ["elo_diff", *FORM_DIFF_FEATURES]
     seasons = complete_seasons(games)[-args.last :]
     predictions = run_backtest(
         games,
         {
             "frecuencias": FrequencyBaseline,
             "elo_logit": EloLogit,
-            "elo_forma": lambda: FeatureLogit(features),
-            "gbm": lambda: GradientBoosting(features),
+            "elo_sot": lambda: FeatureLogit(["elo_diff", "form_sot_diff"]),
         },
         test_seasons=seasons,
     )

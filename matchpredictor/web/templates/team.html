@@ -20,6 +20,11 @@
   <h2>Forma reciente</h2>
   <div class="form-chips">{% for outcome in data.form %}<span class="{{ outcome }}">{{ outcome }}</span>{% endfor %}</div>
   <p class="note">W victoria · D empate · L derrota. El último partido, a la derecha.</p>
+  {% if data.sot_form is not none %}
+  <p class="note">Tiros a puerta (últimos 10 partidos): <b>{{ data.sot_form | signed }}</b>
+    por partido respecto al rival. Es la señal de juego más informativa que usa el modelo,
+    además del Elo.</p>
+  {% endif %}
 </div>
 
 {% if data.current_season %}

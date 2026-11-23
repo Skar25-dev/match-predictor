@@ -7,6 +7,7 @@ JSON.
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from matchpredictor.analysis import (
@@ -17,10 +18,12 @@ from matchpredictor.analysis import (
     team_matches,
     team_summary,
 )
-from matchpredictor.features import compute_elo
-from matchpredictor.models import EloLogit
+from matchpredictor.features import add_form_features, compute_elo, current_form
+from matchpredictor.models import FeatureLogit
 
 DIVISIONS = ("SP1", "SP2")
+#: features del modelo: diferencia de Elo y de tiros a puerta recientes (ver evaluation.backtest)
+MODEL_FEATURES = ["elo_diff", "form_sot_diff"]
 
 
 class PredictorService:
@@ -35,7 +38,10 @@ class PredictorService:
         self.raw = raw
         self.division_offset = float(division_offset)
         self.games, self.ratings = compute_elo(raw, division_offset=self.division_offset)
-        self.model = EloLogit().fit(self.games)
+        self.games = add_form_features(self.games)
+        self.model = FeatureLogit(MODEL_FEATURES).fit(self.games)
+        #: forma actual por equipo (para predecir partidos futuros)
+        self.form = current_form(self.games)
         self.latest_season = str(raw["season"].max())
         self._long = team_matches(raw)
         in_season = self._long[self._long["season"] == self.latest_season]
@@ -66,6 +72,11 @@ class PredictorService:
             return self.current_division[team]
         return str(self._long[self._long["team"] == team]["division"].iloc[-1])
 
+    def _sot_form(self, team: str) -> float | None:
+        """Diferencia media de tiros a puerta por partido en los últimos 10 (None sin datos)."""
+        value = self.form.loc[team, "form_sot"]
+        return None if pd.isna(value) else round(float(value), 1)
+
     def overview(self, team: str) -> dict:
         """Ficha de un equipo: Elo, balance, forma, últimos partidos y recorrido por temporadas."""
         team = resolve_team(self.raw, team)
@@ -84,6 +95,7 @@ class PredictorService:
             else None,
             "all_time": team_summary(self.raw, team),
             "form": form_string(self.raw, team, 5),
+            "sot_form": self._sot_form(team),
             "last_matches": [
                 {
                     "date": row.date.date().isoformat(),
@@ -119,11 +131,10 @@ class PredictorService:
             elo_diff = self._common_rating(home) - self._common_rating(away)
         else:
             elo_diff = self.ratings[home] - self.ratings[away]
+        sot_home, sot_away = self._sot_form(home), self._sot_form(away)
+        sot_diff = np.nan if sot_home is None or sot_away is None else sot_home - sot_away
         row = pd.DataFrame(
-            {
-                "elo_diff": [elo_diff],
-                "division": [used_division],
-            }
+            {"elo_diff": [elo_diff], "form_sot_diff": [sot_diff], "division": [used_division]}
         )
         probs = self.model.predict_proba(row).iloc[0]
         chances = {"home": float(probs["p_home"]), "draw": float(probs["p_draw"])}
@@ -136,6 +147,7 @@ class PredictorService:
             "away_elo": round(self.ratings[away], 1),
             "probabilities": {key: round(value, 4) for key, value in chances.items()},
             "fair_odds": {key: round(1.0 / value, 2) for key, value in chances.items()},
+            "sot_form": {"home": sot_home, "away": sot_away},
             "hypothetical": hypothetical,
             "division_offset": self.division_offset if hypothetical else 0.0,
         }

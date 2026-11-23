@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from matchpredictor.features import FORM_METRICS, add_form_features
+from matchpredictor.features import FORM_METRICS, add_form_features, current_form
 
 
 def league(n_teams=6, rounds=30, seed=1, shots=True):
@@ -169,3 +169,62 @@ def test_duplicate_index_is_rejected():
 
     with pytest.raises(ValueError, match="índice"):
         add_form_features(games)
+
+
+def test_current_form_equals_the_features_of_a_match_played_right_after():
+    games = league()
+    last = games["date"].max()
+    extra = pd.DataFrame(
+        [
+            {
+                "season": "2023-24",
+                "division": "SP1",
+                "date": last + pd.Timedelta(days=20),
+                "home_team": f"T{h}",
+                "away_team": f"T{a}",
+                "home_goals": 0,
+                "away_goals": 0,
+                "home_shots": 10.0,
+                "away_shots": 10.0,
+                "home_shots_on_target": 3.0,
+                "away_shots_on_target": 3.0,
+            }
+            for h, a in ((0, 1), (2, 3), (4, 5))
+        ]
+    )
+    extended = pd.concat([games, extra], ignore_index=True)
+
+    with_next = add_form_features(extended).iloc[len(games) :]
+    now = current_form(games)
+
+    for row in with_next.itertuples():
+        for side, team in (("home", row.home_team), ("away", row.away_team)):
+            for metric in ("form_pts", "form_gd", "form_shots", "form_sot"):
+                np.testing.assert_allclose(
+                    getattr(row, f"{metric}_{side}"), now.loc[team, metric], equal_nan=True
+                )
+
+
+def test_current_form_has_one_row_per_team_and_empty_values_without_history():
+    games = league(n_teams=6, rounds=2)  # solo 2 partidos por equipo: forma de 5 sin mínimo
+
+    now = current_form(games)
+
+    assert now.index.tolist() == sorted(set(games["home_team"]) | set(games["away_team"]))
+    assert now["form_pts"].isna().all() and now["form_shots"].isna().all()
+    assert list(now.columns) == ["form_pts", "form_gd", "form_shots", "form_sot"]
+
+
+def test_current_form_uses_only_the_latest_window():
+    games = league(n_teams=6, rounds=30)
+    team = "T0"
+    mine = games[(games["home_team"] == team) | (games["away_team"] == team)]
+    sot = [
+        (r.home_shots_on_target - r.away_shots_on_target) * (1 if r.home_team == team else -1)
+        for r in mine.itertuples()
+    ]
+
+    now = current_form(games)
+
+    assert now.loc[team, "form_sot"] == pytest.approx(np.mean(sot[-10:]))
+    assert now.loc[team, "form_sot"] != pytest.approx(np.mean(sot))
