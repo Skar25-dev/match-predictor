@@ -108,3 +108,32 @@ def add_shots(raw: pd.DataFrame, seed: int = 0) -> pd.DataFrame:
     ):
         out[column] = rng.integers(low, high, len(out)).astype(float)
     return out
+
+
+def synthetic_fixtures(raw: pd.DataFrame) -> pd.DataFrame:
+    """Calendario inventado justo después de los datos, en el formato de ``load_fixtures``."""
+    after = raw["date"].max() + pd.Timedelta(days=10)
+
+    def row(division, day, time, home, away, odds=None, avg=None):
+        out = {
+            "division": division,
+            "date": after + pd.Timedelta(days=day),
+            "time": time,
+            "home_team": home,
+            "away_team": away,
+        }
+        for prefix, values in (("b365", odds), ("avg", avg)):
+            for outcome, value in zip(("home", "draw", "away"), values or (None,) * 3, strict=True):
+                out[f"{prefix}_{outcome}"] = float("nan") if value is None else value
+        return out
+
+    rows = [
+        row("SP1", 1, "20:00", "T01", "T02", odds=(2.0, 3.5, 4.0), avg=(1.9, 3.6, 4.2)),
+        row("SP1", 0, "13:00", "T03", "T04", odds=(2.5, 3.2, 3.0)),  # solo Bet365
+        row("SP2", 0, None, "U01", "U02"),  # sin cuotas ni hora
+        row("SP1", 1, "15:00", "T05", "Nuevo FC", odds=(1.5, 4.0, 7.0)),  # sin historial
+    ]
+    df = pd.DataFrame(rows)
+    for column in ("b365_home", "b365_draw", "b365_away", "avg_home", "avg_draw", "avg_away"):
+        df[column] = df[column].astype(float)
+    return df.sort_values(["date", "time"], kind="stable").reset_index(drop=True)

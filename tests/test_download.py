@@ -133,3 +133,69 @@ def test_main_returns_error_when_everything_fails(tmp_path):
     )
 
     assert code == 1
+
+
+# --- Calendario de próximos partidos ------------------------------------------------------
+FIXTURES_CSV = b"Div,Date,Time,HomeTeam,AwayTeam\nSP1,20/11/2026,20:00,Alpha,Beta\n"
+
+
+def test_download_fixtures_writes_and_overwrites(tmp_path):
+    from matchpredictor.data.download import FIXTURES_URL, download_fixtures
+
+    target = tmp_path / "data" / "fixtures.csv"
+    target.parent.mkdir()
+    target.write_bytes(b"old content")
+    session = FakeSession({FIXTURES_URL: FakeResponse(FIXTURES_CSV)})
+
+    path = download_fixtures(target, session=session)
+
+    assert path == target and target.read_bytes() == FIXTURES_CSV
+    assert session.calls[0][1]["headers"]["User-Agent"].startswith("match-predictor")
+
+
+def test_download_fixtures_creates_the_folder(tmp_path):
+    from matchpredictor.data.download import FIXTURES_URL, download_fixtures
+
+    target = tmp_path / "nueva" / "fixtures.csv"
+
+    download_fixtures(target, session=FakeSession({FIXTURES_URL: FakeResponse(FIXTURES_CSV)}))
+
+    assert target.exists()
+
+
+@pytest.mark.parametrize(
+    "response",
+    [FakeResponse(b"<html>no encontrado</html>"), FakeResponse(status=500)],
+    ids=["html", "http-error"],
+)
+def test_download_fixtures_rejects_bad_responses_and_keeps_the_old_file(tmp_path, response):
+    from matchpredictor.data.download import FIXTURES_URL, download_fixtures
+
+    target = tmp_path / "fixtures.csv"
+    target.write_bytes(b"old")
+
+    with pytest.raises((ValueError, requests.HTTPError)):
+        download_fixtures(target, session=FakeSession({FIXTURES_URL: response}))
+
+    assert target.read_bytes() == b"old"
+
+
+def test_cli_fixtures_flag_downloads_only_the_calendar(tmp_path, capsys):
+    from matchpredictor.data.download import FIXTURES_URL
+
+    session = FakeSession({FIXTURES_URL: FakeResponse(FIXTURES_CSV)})
+    out = tmp_path / "fixtures.csv"
+
+    code = download.main(["--fixtures", "--fixtures-out", str(out)], session=session)
+
+    assert code == 0 and out.read_bytes() == FIXTURES_CSV
+    assert [url for url, _ in session.calls] == [FIXTURES_URL]  # ninguna temporada
+    assert "calendario" in capsys.readouterr().out
+
+
+def test_cli_fixtures_flag_reports_failures(tmp_path, capsys):
+    session = FakeSession({})  # 404
+
+    code = download.main(["--fixtures", "--fixtures-out", str(tmp_path / "f.csv")], session=session)
+
+    assert code == 1 and "calendario" in capsys.readouterr().err

@@ -4,6 +4,7 @@ Uso:
     python -m matchpredictor.data.download                       # últimas 10 temporadas
     python -m matchpredictor.data.download --from-season 2018 --divisions SP1 SP2
     python -m matchpredictor.data.download --force               # volver a descargar todo
+    python -m matchpredictor.data.download --fixtures            # solo el calendario próximo
 
 Los archivos se guardan en ``data/raw/`` como ``SP1_2025-26.csv``. Los que ya existen se
 saltan (salvo con ``--force``), así que se puede relanzar sin problema.
@@ -23,6 +24,9 @@ BASE_URL = "https://www.football-data.co.uk/mmz4281"
 DIVISIONS = ("SP1", "SP2")  # La Liga y Segunda División
 USER_AGENT = "match-predictor/0.1 (proyecto educativo)"
 DEFAULT_OUT_DIR = Path("data/raw")
+FIXTURES_URL = "https://www.football-data.co.uk/fixtures.csv"
+# Fuera de data/raw: load_all lee todos los CSV de esa carpeta y esto no es un resultado.
+DEFAULT_FIXTURES_PATH = Path("data/fixtures.csv")
 
 
 def season_code(start_year: int) -> str:
@@ -74,6 +78,21 @@ def download_season(
     return target, True
 
 
+def download_fixtures(
+    target: Path = DEFAULT_FIXTURES_PATH, *, session: requests.Session | None = None
+) -> Path:
+    """Descarga el calendario de próximos partidos. Siempre sobrescribe: cambia cada semana."""
+    http = session or requests
+    response = http.get(FIXTURES_URL, timeout=30, headers={"User-Agent": USER_AGENT})
+    response.raise_for_status()
+    if b"HomeTeam" not in response.content[:5000]:
+        raise ValueError(f"{FIXTURES_URL} no devolvió un CSV de partidos")
+    target = Path(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(response.content)
+    return target
+
+
 def main(argv: list[str] | None = None, *, session: requests.Session | None = None) -> int:
     current = current_season_start()
     parser = argparse.ArgumentParser(description="Descarga los CSV de football-data.co.uk")
@@ -83,7 +102,20 @@ def main(argv: list[str] | None = None, *, session: requests.Session | None = No
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--pause", type=float, default=0.5, help="segundos entre descargas")
+    parser.add_argument(
+        "--fixtures", action="store_true", help="solo descarga el calendario de próximos partidos"
+    )
+    parser.add_argument("--fixtures-out", type=Path, default=DEFAULT_FIXTURES_PATH)
     args = parser.parse_args(argv)
+
+    if args.fixtures:
+        try:
+            path = download_fixtures(args.fixtures_out, session=session)
+        except (requests.RequestException, ValueError) as error:
+            print(f"  ✗ calendario: {error}", file=sys.stderr)
+            return 1
+        print(f"  ↓ calendario -> {path}")
+        return 0
 
     downloaded = skipped = 0
     failed: list[str] = []

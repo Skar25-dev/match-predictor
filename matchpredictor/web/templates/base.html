@@ -56,6 +56,11 @@
     .probs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; }
     .probs b { display: block; font-size: 1.6rem; }
     .probs small { color: var(--muted); }
+    .scroll { overflow-x: auto; }
+    .warn { border-color: var(--away); }
+    .gap-big { color: var(--away); font-weight: 600; }
+    .past { opacity: .65; }
+    td.l { text-align: left; }
     .note { color: var(--muted); font-size: .85rem; }
     .error { border-color: var(--loss); color: var(--loss); }
     footer { color: var(--muted); font-size: .8rem; padding: 24px 0 40px; }
@@ -64,7 +69,7 @@
 <body>
 <header><div class="inner">
   <a class="brand" href="/">⚽ Match Predictor</a>
-  <nav><a href="/">Equipos</a><a href="/predict">Predictor</a></nav>
+  <nav><a href="/">Equipos</a><a href="/fixtures">Jornada</a><a href="/predict">Predictor</a></nav>
 </div></header>
 <main>
   {% block content %}{% endblock %}

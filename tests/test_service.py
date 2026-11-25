@@ -253,3 +253,93 @@ def test_trained_model_uses_elo_and_shot_form_plus_division(shots_service):
 
     assert model.features == ["elo_diff", "form_sot_diff"]
     assert model.model_.coef_.shape[1] == 3  # Elo, tiros a puerta y división
+
+
+# --- Calendario --------------------------------------------------------------------------------
+def _fixture_entries(service, raw):
+    from tests.synthetic import synthetic_fixtures
+
+    return service.predict_fixtures(synthetic_fixtures(raw))
+
+
+def test_fixtures_are_sorted_and_each_has_probabilities_or_an_error(service, raw):
+    entries = _fixture_entries(service, raw)
+
+    assert [(e["home"], e["away"]) for e in entries] == [
+        ("T03", "T04"),
+        ("U01", "U02"),
+        ("T05", "Nuevo FC"),
+        ("T01", "T02"),
+    ]
+    for entry in [e for e in entries if e["away"] != "Nuevo FC"]:
+        assert entry["error"] is None
+        assert sum(entry["probabilities"].values()) == pytest.approx(1.0, abs=2e-4)
+        assert entry["model"] == "elo_sot" or entry["model"] == "elo"
+    assert entries[0]["time"] == "13:00" and entries[1]["time"] is None
+
+
+def test_unknown_team_in_a_fixture_gives_an_error_entry_not_an_exception(service, raw):
+    entry = _fixture_entries(service, raw)[2]
+
+    assert entry["away"] == "Nuevo FC"
+    assert "desconocido" in entry["error"]
+    assert entry["probabilities"] is None and entry["market"] is None
+
+
+def test_market_prefers_the_average_and_falls_back_to_bet365(service, raw):
+    entries = {(e["home"], e["away"]): e for e in _fixture_entries(service, raw)}
+
+    both = entries[("T01", "T02")]
+    only_bet365 = entries[("T03", "T04")]
+    none = entries[("U01", "U02")]
+
+    assert both["market_source"] == "avg"
+    inverse = [1 / 1.9, 1 / 3.6, 1 / 4.2]
+    assert both["market"]["home"] == pytest.approx(inverse[0] / sum(inverse), abs=1e-4)
+    assert only_bet365["market_source"] == "b365"
+    assert sum(only_bet365["market"].values()) == pytest.approx(1.0, abs=2e-4)
+    assert none["market"] is None and none["biggest_gap"] is None and none["error"] is None
+
+
+def test_biggest_gap_is_the_largest_model_minus_market_difference(service, raw):
+    entry = {(e["home"], e["away"]): e for e in _fixture_entries(service, raw)}[("T01", "T02")]
+
+    gaps = {k: 100 * (entry["probabilities"][k] - entry["market"][k]) for k in entry["market"]}
+    biggest = max(gaps, key=lambda k: abs(gaps[k]))
+
+    assert entry["biggest_gap"]["outcome"] == biggest
+    assert entry["biggest_gap"]["points"] == pytest.approx(gaps[biggest], abs=0.06)
+
+
+def test_fixtures_already_in_the_results_are_skipped(service, raw):
+    from tests.synthetic import synthetic_fixtures
+
+    fixtures = synthetic_fixtures(raw)
+    played = raw.iloc[[10]]
+    already = pd.DataFrame(
+        {
+            "division": played["division"].to_numpy(),
+            "date": played["date"].to_numpy(),
+            "time": None,
+            "home_team": played["home_team"].to_numpy(),
+            "away_team": played["away_team"].to_numpy(),
+        }
+    )
+    combined = pd.concat([fixtures, already], ignore_index=True)
+
+    entries = service.predict_fixtures(combined)
+
+    assert len(entries) == len(fixtures)
+    assert played["home_team"].iloc[0] not in {
+        e["home"] for e in entries if e["date"] == played["date"].iloc[0].date().isoformat()
+    }
+
+
+def test_fixtures_use_the_division_of_the_fixture(service, raw):
+    from tests.synthetic import synthetic_fixtures
+
+    sp2 = {(e["home"], e["away"]): e for e in _fixture_entries(service, raw)}[("U01", "U02")]
+    direct = service.predict("U01", "U02", division="SP2")
+
+    assert sp2["probabilities"] == direct["probabilities"]
+    assert len(synthetic_fixtures(raw)) == 4
