@@ -90,6 +90,7 @@ def create_app(
         return {
             "loaded": entries is not None,
             "entries": shown,
+            "all_entries": bool(entries),
             "latest": latest,
             "stale": latest is not None and date.fromisoformat(latest) < reference_day,
             "today": reference_day.isoformat(),

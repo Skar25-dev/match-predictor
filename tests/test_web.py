@@ -327,3 +327,14 @@ def test_entrypoint_without_a_calendar_file_still_starts(tmp_path, monkeypatch, 
 
     assert "Sin calendario" in capsys.readouterr().out
     assert "No hay calendario cargado" in TestClient(started["app"]).get("/fixtures").text
+
+
+def test_empty_calendar_is_explained_differently_from_an_empty_filter(fixtures_setup):
+    raw, fixtures = fixtures_setup
+    empty = TestClient(create_app(PredictorService(raw), fixtures.iloc[0:0], today=None))
+
+    page = " ".join(empty.get("/fixtures").text.split())
+
+    assert "no tiene partidos pendientes" in page
+    assert "No hay calendario cargado" not in page
+    assert "Filtrar" not in page

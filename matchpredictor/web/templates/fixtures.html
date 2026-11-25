@@ -10,6 +10,15 @@
   <pre>python -m matchpredictor.data.download --fixtures
 python -m matchpredictor.web --data data/raw --fixtures data/fixtures.csv</pre>
 </div>
+{% elif not all_entries %}
+<div class="card warn">
+  <b>El calendario no tiene partidos pendientes de La Liga ni de Segunda.</b>
+  Puede que football-data.co.uk aún no haya publicado la próxima jornada (por ejemplo, en un
+  parón de selecciones) o que todos sus partidos ya estén en los resultados. Vuelve a descargarlo
+  unos días antes de la jornada:
+  <pre>python -m matchpredictor.data.download --fixtures</pre>
+  y reinicia la web.
+</div>
 {% else %}
   {% if stale %}
   <div class="card warn">
