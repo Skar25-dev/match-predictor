@@ -202,12 +202,52 @@ def load_season(path: str | Path) -> pd.DataFrame:
 
 
 def load_all(data_dir: str | Path) -> pd.DataFrame:
-    """Carga y une todos los CSV de un directorio, ordenados cronológicamente."""
+    """Carga y une todos los CSV de resultados de un directorio, ordenados cronológicamente.
+
+    Se ignoran los archivos de calendario (``fixtures*.csv``): no tienen resultados.
+    """
     data_dir = Path(data_dir)
-    files = sorted(data_dir.glob("*.csv"))
+    files = sorted(f for f in data_dir.glob("*.csv") if not f.name.lower().startswith("fixtures"))
     if not files:
         raise FileNotFoundError(
             f"No hay CSV en {data_dir}. Descárgalos con: python -m matchpredictor.data.download"
         )
     df = pd.concat([load_season(file) for file in files], ignore_index=True)
     return _sort(_drop_duplicates(df, str(data_dir)))
+
+
+_FIXTURE_REQUIRED = {
+    "Div": "division",
+    "Date": "date",
+    "HomeTeam": "home_team",
+    "AwayTeam": "away_team",
+}
+FIXTURE_COLUMNS = ["division", "date", "time", "home_team", "away_team", *_ODDS.values()]
+
+
+def load_fixtures(path: str | Path, divisions: tuple[str, ...] = ("SP1", "SP2")) -> pd.DataFrame:
+    """Carga el calendario de próximos partidos (``fixtures.csv`` de football-data.co.uk).
+
+    El archivo mezcla muchas ligas: se conservan solo las de ``divisions``. Devuelve una fila por
+    partido con ``division``, ``date``, ``time`` (texto tal como viene; el archivo no indica la
+    zona horaria) y las cuotas de apertura con los mismos nombres que ``load_season``. Las
+    cuotas de cierre vienen vacías porque los partidos aún no se han jugado.
+    """
+    path = Path(path)
+    raw = _read_csv(path).dropna(how="all")
+    missing = [column for column in _FIXTURE_REQUIRED if column not in raw.columns]
+    if missing:
+        raise DataFormatError(f"{path.name}: faltan columnas obligatorias: {', '.join(missing)}")
+
+    columns = {**_FIXTURE_REQUIRED, "Time": "time", **_ODDS}
+    df = raw.reindex(columns=list(columns)).rename(columns=columns)
+    for column in ("division", "home_team", "away_team", "time"):
+        df[column] = df[column].astype("string").str.strip()
+    df["date"] = parse_dates(df["date"])
+    for column in _ODDS.values():
+        df[column] = pd.to_numeric(df[column], errors="coerce")
+
+    df = df[df["division"].isin(divisions)]
+    df = df.dropna(subset=["home_team", "away_team", "date"])
+    df = _drop_duplicates(df, path.name)
+    return _sort(df)[FIXTURE_COLUMNS].reset_index(drop=True)

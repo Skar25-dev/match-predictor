@@ -1,5 +1,6 @@
 import re
 
+import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
@@ -209,3 +210,120 @@ def test_same_division_page_shows_shot_form_and_no_elo_only_note(client):
 
     assert "Tiros a puerta (últimos 10):" in page
     assert "solo se usa el Elo" not in page
+
+
+# --- Página de la jornada ----------------------------------------------------------------------
+@pytest.fixture(scope="module")
+def fixtures_setup():
+    from tests.synthetic import synthetic_fixtures
+
+    raw = add_shots(synthetic_raw_two_divisions())
+    return raw, synthetic_fixtures(raw)
+
+
+def _fixtures_client(setup, today):
+    raw, fixtures = setup
+    return TestClient(create_app(PredictorService(raw), fixtures, today=today))
+
+
+def test_fixtures_page_lists_matches_with_model_and_market(fixtures_setup):
+    raw, fixtures = fixtures_setup
+    web = _fixtures_client(fixtures_setup, raw["date"].max().date())
+
+    page = " ".join(web.get("/fixtures").text.split())
+
+    for text in ("Próxima jornada", "T01", "T02", "T03", "13:00", "Modelo", "Mercado"):
+        assert text in page
+    assert re.search(r"\d+ / \d+ / \d+", page)
+    assert "Sin predicción" in page and "Nuevo FC" in page
+    assert "ya ha pasado" not in page  # calendario vigente
+    assert "pasado</span>" not in page
+
+
+def test_stale_calendar_is_flagged(fixtures_setup):
+    raw, fixtures = fixtures_setup
+    future = fixtures["date"].max().date() + pd.Timedelta(days=3)
+    web = _fixtures_client(fixtures_setup, future)
+
+    page = " ".join(web.get("/fixtures").text.split())
+
+    assert "ya ha pasado" in page
+    assert page.count("pasado</span>") == 4  # los 4 partidos del calendario ya han pasado
+    assert web.get("/api/fixtures").json()["stale"] is True
+
+
+def test_filters_by_division_and_team(fixtures_setup):
+    raw, _ = fixtures_setup
+    web = _fixtures_client(fixtures_setup, raw["date"].max().date())
+
+    sp2 = web.get("/api/fixtures", params={"division": "SP2"}).json()["fixtures"]
+    team = web.get("/api/fixtures", params={"team": "T01"}).json()["fixtures"]
+    everything = web.get("/api/fixtures", params={"division": "XX"}).json()["fixtures"]
+    nothing = web.get("/api/fixtures", params={"division": "SP2", "team": "T01"}).json()["fixtures"]
+
+    assert [(e["home"], e["away"]) for e in sp2] == [("U01", "U02")]
+    assert [(e["home"], e["away"]) for e in team] == [("T01", "T02")]
+    assert len(everything) == 4 and nothing == []
+    assert (
+        "No hay partidos que coincidan"
+        in web.get("/fixtures", params={"division": "SP2", "team": "T01"}).text
+    )
+
+
+def test_without_a_calendar_the_page_explains_how_to_get_one():
+    raw = synthetic_raw_two_divisions()
+    web = TestClient(create_app(PredictorService(raw)))
+
+    page = web.get("/fixtures").text
+
+    assert "No hay calendario cargado" in page and "download --fixtures" in page
+    assert web.get("/api/fixtures").json() == {"fixtures": [], "latest_date": None, "stale": False}
+
+
+def test_fixtures_page_escapes_team_names_from_the_file(fixtures_setup):
+    raw, fixtures = fixtures_setup
+    evil = fixtures.copy()
+    evil.loc[0, "away_team"] = "<script>alert(1)</script>"
+    web = TestClient(create_app(PredictorService(raw), evil, today=raw["date"].max().date()))
+
+    page = web.get("/fixtures").text
+
+    assert "<script>alert" not in page and "&lt;script&gt;" in page
+
+
+def test_navigation_links_to_the_fixtures_page(client):
+    assert 'href="/fixtures"' in client.get("/").text
+
+
+def test_entrypoint_loads_the_calendar_file(tmp_path, monkeypatch):
+    import uvicorn
+
+    from matchpredictor.web.__main__ import main
+
+    write_as_csvs(synthetic_raw_two_divisions(), tmp_path)
+    calendar = tmp_path.parent / f"{tmp_path.name}_calendar.csv"
+    calendar.write_text(
+        "Div,Date,Time,HomeTeam,AwayTeam,B365H,B365D,B365A\nSP1,01/01/2030,20:00,T01,T02,2,3.4,3.8\n"
+    )
+    started = {}
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kwargs: started.update(app=app, **kwargs))
+
+    main(["--data", str(tmp_path), "--fixtures", str(calendar)])
+
+    page = TestClient(started["app"]).get("/fixtures").text
+    assert "T01" in page and "01/01" in page
+
+
+def test_entrypoint_without_a_calendar_file_still_starts(tmp_path, monkeypatch, capsys):
+    import uvicorn
+
+    from matchpredictor.web.__main__ import main
+
+    write_as_csvs(synthetic_raw_two_divisions(), tmp_path)
+    started = {}
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kwargs: started.update(app=app, **kwargs))
+
+    main(["--data", str(tmp_path), "--fixtures", str(tmp_path / "no_existe.csv")])
+
+    assert "Sin calendario" in capsys.readouterr().out
+    assert "No hay calendario cargado" in TestClient(started["app"]).get("/fixtures").text

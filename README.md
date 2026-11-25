@@ -20,7 +20,8 @@ temporal sin fuga de información, probabilidades calibradas y comparación cont
 - [x] Línea base: probabilidades implícitas de las cuotas y regresión logística sobre el Elo
 - [x] Modelo de gradient boosting (`HistGradientBoosting` de scikit-learn) y regresión logística con esas features
 - [x] La web usa el mejor modelo del backtesting: Elo + tiros a puerta recientes (logística)
-- [ ] Próxima jornada en la web, historial de predicciones frente al mercado, MLflow
+- [x] Próxima jornada en la web: probabilidades del modelo junto a las del mercado
+- [ ] Historial de predicciones guardadas frente al resultado y al mercado
 - [x] Backtesting temporal frente a las cuotas del mercado (log-loss, Brier)
 - [x] Web con FastAPI + Jinja2: ficha de equipo y predictor de partido (con selector de equipos)
 - [ ] Registro de experimentos con MLflow, PostgreSQL y actualización periódica de datos
@@ -154,7 +155,10 @@ python -m matchpredictor.web --data data/raw --division-offset -30   # ajuste en
   últimos partidos y recorrido por temporadas (ascensos y descensos).
 - `/predict?home=Sevilla&away=Cadiz`: probabilidades 1X2 y cuotas justas. Si los equipos no
   juegan en la misma división, se avisa de que el partido es hipotético.
-- API JSON: `/api/teams`, `/api/team/<equipo>`, `/api/predict?home=..&away=..`, `/health` y
+- `/fixtures`: próxima jornada con las probabilidades del modelo junto a las del mercado
+  (filtros `division` y `team`). Avisa si el calendario está desfasado.
+- API JSON: `/api/teams`, `/api/team/<equipo>`, `/api/predict?home=..&away=..`,
+  `/api/fixtures`, `/health` y
   documentación interactiva en `/api/docs`.
 
 Al arrancar carga los CSV y entrena el modelo una vez; después responde al instante.
@@ -170,6 +174,17 @@ equipos de divisiones distintas están medidos contra rivales distintos y no son
 no hay un ajuste validado para ellos; con Elo y tiros juntos el modelo reparte el peso entre
 ambos y el Elo, que es lo que separa a los equipos, pesaría menos. El resultado indica qué
 modelo se ha usado (`model`: `elo` o `elo_sot`).
+
+**Próxima jornada:** descarga el calendario y arranca la web con él:
+
+```bash
+python -m matchpredictor.data.download --fixtures      # guarda data/fixtures.csv
+python -m matchpredictor.web --data data/raw --fixtures data/fixtures.csv
+```
+
+El mercado son las cuotas medias de apertura (o Bet365 si faltan) sin el margen de la casa.
+La hora se muestra tal como viene en el archivo, que no indica la zona horaria. Un partido con
+un equipo sin historial aparece como «Sin predicción».
 
 ### 🐳 Con Docker
 

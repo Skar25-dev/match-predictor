@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Jornada · Match Predictor{% endblock %}
+{% block content %}
+<h1>Próxima jornada</h1>
+<p class="sub">Probabilidades del modelo frente a las del mercado, partido a partido.</p>
+
+{% if not loaded %}
+<div class="card warn">
+  <b>No hay calendario cargado.</b> Descárgalo y reinicia la web:
+  <pre>python -m matchpredictor.data.download --fixtures
+python -m matchpredictor.web --data data/raw --fixtures data/fixtures.csv</pre>
+</div>
+{% else %}
+  {% if stale %}
+  <div class="card warn">
+    El calendario cargado llega hasta el <b>{{ latest | short_date }}</b>, que ya ha pasado.
+    Actualízalo con <code>python -m matchpredictor.data.download --fixtures</code> y reinicia la web.
+  </div>
+  {% endif %}
+
+  <form class="card" action="/fixtures" method="get">
+    <div class="grid">
+      <div><label>Competición</label>
+        <select name="division">
+          <option value="" {% if not division %}selected{% endif %}>Todas</option>
+          <option value="SP1" {% if division == "SP1" %}selected{% endif %}>La Liga</option>
+          <option value="SP2" {% if division == "SP2" %}selected{% endif %}>Segunda División</option>
+        </select></div>
+      <div><label>Equipo</label>
+        <select name="team">
+          <option value="" {% if not team %}selected{% endif %}>Todos</option>
+          {% for name in fixture_teams %}
+            <option value="{{ name }}" {% if name == team %}selected{% endif %}>{{ name | team_name }}</option>
+          {% endfor %}
+        </select></div>
+    </div>
+    <button type="submit">Filtrar</button>
+  </form>
+
+  {% if entries %}
+  <div class="card scroll">
+    <table>
+      <tr><th>Fecha</th><th>Hora*</th><th>Partido</th><th>Modelo<br><small>1 / X / 2 (%)</small></th>
+          <th>Mercado**<br><small>1 / X / 2 (%)</small></th><th>Mayor diferencia</th></tr>
+      {% for e in entries %}
+      <tr class="{% if e.date < today %}past{% endif %}">
+        <td>{{ e.date | short_date }}{% if e.date < today %} <span class="badge">pasado</span>{% endif %}</td>
+        <td>{{ e.time or "—" }}</td>
+        <td class="l"><a href="/team/{{ e.home | urlencode }}">{{ e.home | team_name }}</a> –
+            <a href="/team/{{ e.away | urlencode }}">{{ e.away | team_name }}</a></td>
+        {% if e.error %}
+          <td colspan="3" class="l note">Sin predicción: {{ e.error }}</td>
+        {% else %}
+          <td>{{ e.probabilities | triple }}</td>
+          <td>{% if e.market %}{{ e.market | triple }}{% else %}—{% endif %}</td>
+          <td>{% if e.biggest_gap %}
+            <span class="{% if e.biggest_gap.points | abs >= 5 %}gap-big{% endif %}">
+              {{ outcome_names[e.biggest_gap.outcome] }} {{ e.biggest_gap.points | signed }} pp</span>
+            {% else %}—{% endif %}</td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  <p class="note">* Hora tal como viene en el archivo de football-data.co.uk, que no indica su zona horaria.<br>
+    ** Cuotas medias de apertura (o Bet365 si no hay) sin el margen de la casa. "Mayor diferencia":
+    dónde más se separa el modelo del mercado, en puntos porcentuales; en naranja si son 5 o más.
+    El mercado sabe de alineaciones y lesiones que el modelo no ve, así que una diferencia grande
+    suele indicar más una limitación del modelo que una oportunidad.</p>
+  {% else %}
+  <div class="card">No hay partidos que coincidan con el filtro.</div>
+  {% endif %}
+{% endif %}
+{% endblock %}

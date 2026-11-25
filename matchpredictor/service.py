@@ -18,6 +18,7 @@ from matchpredictor.analysis import (
     team_matches,
     team_summary,
 )
+from matchpredictor.evaluation.metrics import market_probabilities
 from matchpredictor.features import add_form_features, compute_elo, current_form
 from matchpredictor.models import EloLogit, FeatureLogit
 
@@ -161,6 +162,64 @@ class PredictorService:
             "hypothetical": hypothetical,
             "division_offset": self.division_offset if hypothetical else 0.0,
         }
+
+    # --- calendario ----------------------------------------------------------------------
+    def predict_fixtures(self, fixtures: pd.DataFrame) -> list[dict]:
+        """Predicción y cuotas del mercado de cada partido del calendario aún sin resultado.
+
+        Se saltan los partidos que ya están en los datos de resultados. Si un equipo no tiene
+        historial (p. ej. recién llegado de Segunda B) el partido aparece con ``error`` en lugar
+        de probabilidades. ``market`` son las cuotas del mercado sin margen (media de apertura
+        si existe, y si no Bet365), y ``biggest_gap`` la mayor diferencia entre modelo y mercado
+        en puntos porcentuales.
+        """
+        played = set(
+            zip(self.raw["date"], self.raw["home_team"], self.raw["away_team"], strict=True)
+        )
+        market = market_probabilities(fixtures)
+        entries = []
+        for index, fixture in fixtures.iterrows():
+            if (fixture["date"], fixture["home_team"], fixture["away_team"]) in played:
+                continue
+            entry = {
+                "division": fixture["division"],
+                "date": fixture["date"].date().isoformat(),
+                "time": None if pd.isna(fixture["time"]) else str(fixture["time"]),
+                "home": fixture["home_team"],
+                "away": fixture["away_team"],
+                "model": None,
+                "probabilities": None,
+                "market": None,
+                "market_source": None,
+                "biggest_gap": None,
+                "error": None,
+            }
+            try:
+                result = self.predict(
+                    fixture["home_team"], fixture["away_team"], fixture["division"]
+                )
+            except (UnknownTeamError, ValueError) as error:
+                entry["error"] = str(error)
+                entries.append(entry)
+                continue
+            entry["model"] = result["model"]
+            entry["probabilities"] = result["probabilities"]
+            prices = market.loc[index]
+            if prices[["p_home", "p_draw", "p_away"]].notna().all():
+                entry["market"] = {
+                    "home": round(float(prices["p_home"]), 4),
+                    "draw": round(float(prices["p_draw"]), 4),
+                    "away": round(float(prices["p_away"]), 4),
+                }
+                entry["market_source"] = str(prices["market_source"])
+                gaps = {
+                    k: 100 * (result["probabilities"][k] - entry["market"][k])
+                    for k in entry["market"]
+                }
+                outcome = max(gaps, key=lambda k: abs(gaps[k]))
+                entry["biggest_gap"] = {"outcome": outcome, "points": round(gaps[outcome], 1)}
+            entries.append(entry)
+        return entries
 
 
 __all__ = ["DIVISIONS", "PredictorService", "UnknownTeamError"]
