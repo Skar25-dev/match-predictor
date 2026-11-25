@@ -25,3 +25,6 @@ mlruns/
 .vscode/
 .idea/
 .DS_Store
+
+# Calendario descargado (se regenera con: ... download --fixtures)
+data/fixtures.csv
