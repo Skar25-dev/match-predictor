@@ -201,6 +201,10 @@ mercado sobre los mismos partidos. `replay` simula el registro con partidos ya j
 semana se entrena solo con lo anterior (sin mirar el futuro) y usa las cuotas de apertura,
 como harían los partidos futuros. Esas filas quedan marcadas con `mode = replay`.
 
+`report` incluye además la diferencia de log-loss modelo − mercado con un intervalo de confianza
+del 95 % (bootstrap sobre partidos), global, por división y por modelo usado. Si el intervalo
+contiene el 0, la diferencia no se distingue del ruido con esa muestra.
+
 ### 🐳 Con Docker
 
 ```bash
