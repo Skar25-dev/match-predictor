@@ -1,0 +1,2 @@
+# Registro de experimentos (opcional): pip install -r requirements-tracking.txt
+mlflow-skinny==3.5.0

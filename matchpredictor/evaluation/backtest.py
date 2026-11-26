@@ -93,6 +93,23 @@ def score_table(
     return pd.DataFrame(rows)
 
 
+def track_backtest(predictions: pd.DataFrame, seasons: Sequence[str]) -> str:
+    """Registra en MLflow el log-loss y el Brier de cada modelo (solo partidos con cuotas)."""
+    from matchpredictor.tracking import log_run
+
+    table = score_table(predictions)
+    metrics = {}
+    for row in table.itertuples():
+        metrics[f"{row.model}.log_loss"] = row.log_loss
+        metrics[f"{row.model}.brier"] = row.brier
+    return log_run(
+        run_name=f"backtest {seasons[0]}..{seasons[-1]}",
+        params={"seasons": ",".join(seasons), "models": ",".join(sorted(table["model"]))},
+        metrics={**metrics, "matches": float(table["matches"].max())},
+        tags={"kind": "backtest"},
+    )
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     from matchpredictor.data import load_all
     from matchpredictor.features import add_form_features, compute_elo
@@ -101,6 +118,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Backtesting temporal de la línea base")
     parser.add_argument("--data", default="data/raw", help="directorio con los CSV")
     parser.add_argument("--last", type=int, default=5, help="número de temporadas de test")
+    parser.add_argument(
+        "--track", action="store_true", help="registra el resultado en MLflow (mlruns/)"
+    )
     args = parser.parse_args(argv)
 
     games, _ = compute_elo(load_all(args.data))
@@ -124,6 +144,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     ):
         print(f"\n== {title} (solo partidos con cuotas) ==")
         print(score_table(predictions, by).round(4).to_string(index=False))
+    if args.track:
+        run_id = track_backtest(predictions, seasons)
+        print(f"\nRegistrado en MLflow (run {run_id}). Míralo con:")
+        print("  mlflow ui --backend-store-uri file:mlruns")
     return 0
 
 
