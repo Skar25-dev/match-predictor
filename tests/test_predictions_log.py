@@ -1,5 +1,6 @@
 import math
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -175,3 +176,102 @@ def test_report_without_settled_matches(tmp_path, capsys, raw):
 
     assert plog.main(["report", "--data", str(data), "--log", str(tmp_path / "x.csv")]) == 0
     assert "Aún no hay" in capsys.readouterr().out
+
+
+def _settled(model_probs, result="H", n=200, market=(0.5, 0.3, 0.2), **extra):
+    return pd.DataFrame(
+        {
+            "result": [result] * n,
+            "p_home": model_probs[0],
+            "p_draw": model_probs[1],
+            "p_away": model_probs[2],
+            "m_home": market[0],
+            "m_draw": market[1],
+            "m_away": market[2],
+            **extra,
+        }
+    )
+
+
+def test_gap_is_model_minus_market_and_interval_excludes_zero_when_clear():
+    # el modelo da 0,4 al resultado y el mercado 0,5: -ln(0,4) − -ln(0,5) = ln(1,25)
+    table = plog.gap_table(_settled((0.4, 0.3, 0.3)))
+
+    row = table.iloc[0]
+    assert row["diferencia"] == pytest.approx(math.log(0.5 / 0.4))
+    assert row["diferencia"] > 0
+    assert row["ic95_bajo"] > 0  # todos los partidos pierden igual: sin ruido
+    assert row["partidos"] == 200
+
+
+def test_gap_interval_contains_zero_when_model_and_market_are_equivalent():
+    # mitad de partidos favorece al modelo y mitad al mercado, con la misma magnitud
+    a = _settled((0.6, 0.2, 0.2), "H", n=100, market=(0.4, 0.3, 0.3))
+    b = _settled((0.4, 0.3, 0.3), "H", n=100, market=(0.6, 0.2, 0.2))
+
+    row = plog.gap_table(pd.concat([a, b], ignore_index=True)).iloc[0]
+
+    assert row["diferencia"] == pytest.approx(0.0, abs=1e-12)
+    assert row["ic95_bajo"] < 0 < row["ic95_alto"]
+
+
+def test_gap_by_group_separates_divisions_and_ignores_matches_without_odds():
+    a = _settled((0.4, 0.3, 0.3), n=50, division="SP1")  # modelo peor
+    b = _settled((0.6, 0.2, 0.2), n=50, division="SP2", market=(0.4, 0.3, 0.3))  # modelo mejor
+    no_odds = _settled((0.1, 0.1, 0.8), n=10, division="SP1").assign(m_home=None)
+
+    table = plog.gap_table(pd.concat([a, b, no_odds], ignore_index=True), by="division")
+    by = table.set_index("grupo")
+
+    assert by.loc["SP1", "partidos"] == 50 and by.loc["SP2", "partidos"] == 50
+    assert by.loc["SP1", "diferencia"] > 0 > by.loc["SP2", "diferencia"]
+
+
+def test_gap_is_reproducible():
+    settled = _settled((0.4, 0.3, 0.3))
+    settled.loc[::3, "result"] = "A"
+
+    assert plog.gap_table(settled).equals(plog.gap_table(settled))
+
+
+def test_report_prints_the_gap_tables(tmp_path, capsys, raw):
+    from tests.synthetic import write_as_csvs
+
+    data = tmp_path / "raw"
+    data.mkdir()
+    write_as_csvs(raw, data)
+    log = tmp_path / "log.csv"
+    since = raw["date"].sort_values().iloc[len(raw) * 4 // 5].date().isoformat()
+    base = ["--data", str(data), "--log", str(log)]
+    plog.main(["replay", *base, "--since", since])
+    capsys.readouterr()
+
+    plog.main(["report", *base])
+    out = capsys.readouterr().out
+
+    assert "ic95_bajo" in out and "por división" in out and "por modelo" in out
+
+
+def test_gap_interval_matches_the_normal_approximation():
+    rng = np.random.default_rng(1)
+    n = 400
+    results = rng.choice(["H", "D", "A"], size=n, p=[0.45, 0.27, 0.28])
+    settled = pd.DataFrame(
+        {
+            "result": results,
+            "p_home": 0.45,
+            "p_draw": 0.27,
+            "p_away": 0.28,
+            "m_home": 0.5,
+            "m_draw": 0.25,
+            "m_away": 0.25,
+        }
+    )
+    model_loss, market_loss = plog._match_losses(settled)
+    diff = model_loss - market_loss
+    half = 1.96 * diff.std(ddof=1) / np.sqrt(n)
+
+    row = plog.gap_table(settled).iloc[0]
+
+    assert row["ic95_bajo"] == pytest.approx(diff.mean() - half, abs=0.15 * half)
+    assert row["ic95_alto"] == pytest.approx(diff.mean() + half, abs=0.15 * half)

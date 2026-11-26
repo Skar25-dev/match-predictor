@@ -20,6 +20,7 @@ import argparse
 from collections.abc import Sequence
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from matchpredictor.evaluation.metrics import PROB_COLUMNS, brier_score, log_loss
@@ -132,6 +133,48 @@ def score(settled: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _match_losses(group: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    """Pérdida logarítmica de cada partido para el modelo y para el mercado."""
+    column = {"H": 0, "D": 1, "A": 2}
+    idx = group["result"].map(column).to_numpy()
+    rows = np.arange(len(group))
+    model = group[PROB_COLUMNS].to_numpy(dtype=float)[rows, idx]
+    market = group[["m_home", "m_draw", "m_away"]].to_numpy(dtype=float)[rows, idx]
+    return -np.log(np.clip(model, 1e-15, 1)), -np.log(np.clip(market, 1e-15, 1))
+
+
+def gap_table(
+    settled: pd.DataFrame, by: str | None = None, n_boot: int = 2000, seed: int = 0
+) -> pd.DataFrame:
+    """Diferencia de log-loss modelo − mercado (positiva = el modelo es peor) con IC del 95 %.
+
+    El intervalo sale de remuestrear partidos (bootstrap). ``by`` agrupa por una columna del
+    registro (p. ej. ``division`` o ``model``). Si el intervalo contiene el 0, la diferencia no
+    se distingue del ruido con esa muestra.
+    """
+    comparable = settled.dropna(subset=["m_home", "m_draw", "m_away"])
+    groups = [("todos", comparable)] if by is None else list(comparable.groupby(by))
+    rng = np.random.default_rng(seed)
+    rows = []
+    for key, group in groups:
+        model_loss, market_loss = _match_losses(group)
+        diff = model_loss - market_loss
+        samples = rng.integers(0, len(diff), size=(n_boot, len(diff)))
+        means = diff[samples].mean(axis=1)
+        rows.append(
+            {
+                "grupo": key,
+                "partidos": len(diff),
+                "modelo": model_loss.mean(),
+                "mercado": market_loss.mean(),
+                "diferencia": diff.mean(),
+                "ic95_bajo": np.percentile(means, 2.5),
+                "ic95_alto": np.percentile(means, 97.5),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def replay(raw: pd.DataFrame, since: str, step_days: int = 7) -> pd.DataFrame:
     """Predicciones de los partidos jugados desde ``since`` sin usar información posterior.
 
@@ -196,6 +239,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         pd.set_option("display.width", 120)
         print(score(settled).round(4).to_string(index=False))
+        print("\nDiferencia de log-loss modelo − mercado (positiva = el modelo es peor):")
+        for title, by in (("global", None), ("por división", "division"), ("por modelo", "model")):
+            print(f"\n-- {title} --")
+            print(gap_table(settled, by).round(4).to_string(index=False))
         pending = len(read_log(args.log)) - len(settled)
         print(f"\nPartidos con resultado: {len(settled)} | pendientes de jugarse: {pending}")
     return 0
