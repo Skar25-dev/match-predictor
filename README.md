@@ -21,7 +21,7 @@ temporal sin fuga de información, probabilidades calibradas y comparación cont
 - [x] Modelo de gradient boosting (`HistGradientBoosting` de scikit-learn) y regresión logística con esas features
 - [x] La web usa el mejor modelo del backtesting: Elo + tiros a puerta recientes (logística)
 - [x] Próxima jornada en la web: probabilidades del modelo junto a las del mercado
-- [ ] Historial de predicciones guardadas frente al resultado y al mercado
+- [x] Registro de predicciones: se guardan antes del partido y se comparan con el resultado y el mercado
 - [x] Backtesting temporal frente a las cuotas del mercado (log-loss, Brier)
 - [x] Web con FastAPI + Jinja2: ficha de equipo y predictor de partido (con selector de equipos)
 - [ ] Registro de experimentos con MLflow, PostgreSQL y actualización periódica de datos
@@ -185,6 +185,21 @@ python -m matchpredictor.web --data data/raw --fixtures data/fixtures.csv
 El mercado son las cuotas medias de apertura (o Bet365 si faltan) sin el margen de la casa.
 La hora se muestra tal como viene en el archivo, que no indica la zona horaria. Un partido con
 un equipo sin historial aparece como «Sin predicción».
+
+### 📒 Registro de predicciones
+
+```bash
+python -m matchpredictor.evaluation.predictions_log record   # guarda las del calendario
+python -m matchpredictor.evaluation.predictions_log report   # compara con los resultados
+python -m matchpredictor.evaluation.predictions_log replay --since 2026-08-01
+```
+
+`record` añade a `data/predictions.csv` las predicciones del calendario (modelo y mercado) y
+nunca reescribe un partido ya registrado: se conserva la predicción hecha antes de jugarse.
+Cuando descargas los resultados nuevos, `report` calcula log-loss y Brier del modelo y del
+mercado sobre los mismos partidos. `replay` simula el registro con partidos ya jugados: cada
+semana se entrena solo con lo anterior (sin mirar el futuro) y usa las cuotas de apertura,
+como harían los partidos futuros. Esas filas quedan marcadas con `mode = replay`.
 
 ### 🐳 Con Docker
 
