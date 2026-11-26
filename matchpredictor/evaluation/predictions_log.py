@@ -204,6 +204,31 @@ def replay(raw: pd.DataFrame, since: str, step_days: int = 7) -> pd.DataFrame:
     return pd.concat(pieces, ignore_index=True) if pieces else pd.DataFrame(columns=LOG_COLUMNS)
 
 
+def track_report(settled: pd.DataFrame) -> str:
+    """Registra en MLflow la comparación global modelo-mercado del registro."""
+    from matchpredictor.tracking import log_run
+
+    row = gap_table(settled).iloc[0]
+    modes = ",".join(sorted(settled["mode"].unique()))
+    return log_run(
+        run_name=f"registro {settled['date'].min()}..{settled['date'].max()}",
+        params={
+            "modes": modes,
+            "first_match": settled["date"].min(),
+            "last_match": settled["date"].max(),
+        },
+        metrics={
+            "model.log_loss": row["modelo"],
+            "market.log_loss": row["mercado"],
+            "gap": row["diferencia"],
+            "gap_ci_low": row["ic95_bajo"],
+            "gap_ci_high": row["ic95_alto"],
+            "matches": float(row["partidos"]),
+        },
+        tags={"kind": "prediction-log"},
+    )
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     from matchpredictor.data import load_all, load_fixtures
     from matchpredictor.service import PredictorService
@@ -215,6 +240,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--log", default=str(DEFAULT_LOG_PATH))
     parser.add_argument("--since", default=None, help="replay: fecha de inicio (AAAA-MM-DD)")
     parser.add_argument("--step-days", type=int, default=7, help="replay: días por bloque")
+    parser.add_argument(
+        "--track", action="store_true", help="report: registra la comparación en MLflow"
+    )
     args = parser.parse_args(argv)
 
     raw = load_all(args.data)
@@ -245,6 +273,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(gap_table(settled, by).round(4).to_string(index=False))
         pending = len(read_log(args.log)) - len(settled)
         print(f"\nPartidos con resultado: {len(settled)} | pendientes de jugarse: {pending}")
+        if args.track:
+            run_id = track_report(settled)
+            print(f"Registrado en MLflow (run {run_id})")
     return 0
 
 

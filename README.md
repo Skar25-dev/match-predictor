@@ -24,7 +24,8 @@ temporal sin fuga de información, probabilidades calibradas y comparación cont
 - [x] Registro de predicciones: se guardan antes del partido y se comparan con el resultado y el mercado
 - [x] Backtesting temporal frente a las cuotas del mercado (log-loss, Brier)
 - [x] Web con FastAPI + Jinja2: ficha de equipo y predictor de partido (con selector de equipos)
-- [ ] Registro de experimentos con MLflow, PostgreSQL y actualización periódica de datos
+- [x] Registro de experimentos con MLflow (opcional, `--track`)
+- [ ] PostgreSQL y actualización periódica de datos
 
 ## 📊 Datos
 
@@ -204,6 +205,21 @@ como harían los partidos futuros. Esas filas quedan marcadas con `mode = replay
 `report` incluye además la diferencia de log-loss modelo − mercado con un intervalo de confianza
 del 95 % (bootstrap sobre partidos), global, por división y por modelo usado. Si el intervalo
 contiene el 0, la diferencia no se distingue del ruido con esa muestra.
+
+### 🔬 Registro de experimentos (MLflow)
+
+MLflow es opcional. Instálalo y añade `--track` al backtesting o al informe del registro:
+
+```bash
+pip install -r requirements-tracking.txt
+python -m matchpredictor.evaluation.backtest --data data/raw --track
+python -m matchpredictor.evaluation.predictions_log report --track
+mlflow ui --backend-store-uri file:mlruns        # http://127.0.0.1:5000
+```
+
+Cada ejecución guarda en `mlruns/` (ignorada por git) los parámetros, el log-loss y Brier de
+cada modelo (o la diferencia con el mercado y su intervalo) y el commit del código, para
+comparar versiones del modelo sin perder el rastro. Con `MLFLOW_TRACKING_URI` se cambia el destino.
 
 ### 🐳 Con Docker
 
