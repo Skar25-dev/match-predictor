@@ -7,7 +7,8 @@ Uso:
     python -m matchpredictor.data.download --fixtures            # solo el calendario próximo
 
 Los archivos se guardan en ``data/raw/`` como ``SP1_2025-26.csv``. Los que ya existen se
-saltan (salvo con ``--force``), así que se puede relanzar sin problema.
+saltan (salvo con ``--force``), así que se puede relanzar sin problema. La temporada en curso
+se vuelve a descargar siempre, porque cada semana trae resultados nuevos.
 """
 
 from __future__ import annotations
@@ -124,7 +125,11 @@ def main(argv: list[str] | None = None, *, session: requests.Session | None = No
             label = f"{division} {start_year}-{(start_year + 1) % 100:02d}"
             try:
                 path, was_downloaded = download_season(
-                    start_year, division, args.out, force=args.force, session=session
+                    start_year,
+                    division,
+                    args.out,
+                    force=args.force or start_year == current,
+                    session=session,
                 )
             except (requests.RequestException, ValueError) as error:
                 failed.append(label)
