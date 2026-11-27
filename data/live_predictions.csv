@@ -1,0 +1,22 @@
+made_on,mode,division,date,home_team,away_team,model,p_home,p_draw,p_away,market_source,m_home,m_draw,m_away
+2026-11-27,live,SP2,2026-11-27,Leganes,Sabadell,elo_sot,0.3761,0.3211,0.3027,avg,0.3932,0.3064,0.3004
+2026-11-27,live,SP1,2026-11-27,Levante,Santander,elo_sot,0.4841,0.2755,0.2404,avg,0.4706,0.2389,0.2905
+2026-11-27,live,SP1,2026-11-28,Betis,Vallecano,elo_sot,0.591,0.2498,0.1592,avg,0.5932,0.22,0.1867
+2026-11-27,live,SP2,2026-11-28,Las Palmas,Andorra,elo_sot,0.5341,0.2909,0.175,avg,0.4258,0.2741,0.3001
+2026-11-27,live,SP1,2026-11-28,Malaga,Ath Bilbao,elo_sot,0.2709,0.302,0.4271,avg,0.2045,0.2497,0.5458
+2026-11-27,live,SP2,2026-11-28,Albacete,Tenerife,elo_sot,0.4471,0.304,0.2489,avg,0.4467,0.2871,0.2662
+2026-11-27,live,SP2,2026-11-28,Eldense,Girona,elo_sot,0.2478,0.3022,0.4501,avg,0.3046,0.2856,0.4098
+2026-11-27,live,SP1,2026-11-28,Elche,Ath Madrid,elo_sot,0.1673,0.282,0.5507,avg,0.1515,0.2007,0.6478
+2026-11-27,live,SP2,2026-11-28,Eibar,Burgos,elo_sot,0.423,0.3119,0.2651,avg,0.5068,0.2763,0.2169
+2026-11-27,live,SP1,2026-11-28,Real Madrid,Alaves,elo_sot,0.7723,0.1677,0.0599,avg,0.8424,0.1027,0.055
+2026-11-27,live,SP2,2026-11-28,Valladolid,Sociedad B,elo_sot,0.5543,0.2646,0.1811,avg,0.5286,0.2445,0.2269
+2026-11-27,live,SP1,2026-11-29,Valencia,Osasuna,elo_sot,0.4631,0.2924,0.2445,avg,0.4402,0.2912,0.2686
+2026-11-27,live,SP2,2026-11-29,Granada,Ceuta,elo_sot,0.5584,0.2827,0.1589,avg,0.6019,0.2248,0.1733
+2026-11-27,live,SP1,2026-11-29,La Coruna,Barcelona,elo_sot,0.0707,0.21,0.7193,avg,0.0955,0.1314,0.7731
+2026-11-27,live,SP2,2026-11-29,Mallorca,Castellon,elo_sot,0.411,0.3096,0.2794,avg,0.4092,0.2825,0.3083
+2026-11-27,live,SP1,2026-11-29,Celta,Villarreal,elo_sot,0.3144,0.3012,0.3844,avg,0.3472,0.2717,0.3811
+2026-11-27,live,SP2,2026-11-29,Cadiz,Cordoba,elo_sot,0.3254,0.3192,0.3554,avg,0.3149,0.2544,0.4307
+2026-11-27,live,SP1,2026-11-29,Sociedad,Sevilla,elo_sot,0.4889,0.2802,0.2309,avg,0.4405,0.2676,0.2919
+2026-11-27,live,SP2,2026-11-29,Almeria,Sp Gijon,elo_sot,0.5955,0.2607,0.1438,avg,0.5527,0.2465,0.2009
+2026-11-27,live,SP2,2026-11-30,Oviedo,Celta B,elo_sot,0.5396,0.2751,0.1852,avg,0.6206,0.2177,0.1617
+2026-11-27,live,SP1,2026-11-30,Espanol,Getafe,elo_sot,0.4927,0.2701,0.2373,avg,0.4551,0.2995,0.2454
