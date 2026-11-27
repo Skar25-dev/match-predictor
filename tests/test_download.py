@@ -199,3 +199,39 @@ def test_cli_fixtures_flag_reports_failures(tmp_path, capsys):
     code = download.main(["--fixtures", "--fixtures-out", str(tmp_path / "f.csv")], session=session)
 
     assert code == 1 and "calendario" in capsys.readouterr().err
+
+
+def test_main_always_refreshes_the_current_season_but_not_old_ones(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(download, "current_season_start", lambda today=None: 2025)
+    old, current = tmp_path / "SP1_2024-25.csv", tmp_path / "SP1_2025-26.csv"
+    old.write_bytes(b"viejo")
+    current.write_bytes(b"viejo")
+    session = FakeSession(
+        {build_url(2024, "SP1"): FakeResponse(CSV), build_url(2025, "SP1"): FakeResponse(CSV)}
+    )
+
+    code = download.main(
+        ["--from-season", "2024", "--to-season", "2025", "--divisions", "SP1",
+         "--out", str(tmp_path), "--pause", "0"],
+        session=session,
+    )  # fmt: skip
+
+    assert code == 0
+    assert old.read_bytes() == b"viejo"  # temporada cerrada: no se toca
+    assert current.read_bytes() == CSV  # temporada en curso: se actualiza
+    assert [url for url, _ in session.calls] == [build_url(2025, "SP1")]
+    assert "Descargados: 1 | ya existían: 1" in capsys.readouterr().out
+
+
+def test_failed_refresh_keeps_the_previous_current_season_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(download, "current_season_start", lambda today=None: 2025)
+    current = tmp_path / "SP1_2025-26.csv"
+    current.write_bytes(b"anterior")
+
+    code = download.main(
+        ["--from-season", "2025", "--to-season", "2025", "--divisions", "SP1",
+         "--out", str(tmp_path), "--pause", "0"],
+        session=FakeSession({}),  # 404
+    )  # fmt: skip
+
+    assert code == 1 and current.read_bytes() == b"anterior"
